@@ -454,7 +454,7 @@ a.btn{text-decoration:none}
   <div class="sheet-foot plain">
     <div class="row2">
       <button class="btn outlined" id="btn-cancel-save-avatar" type="button" data-i="cancel"></button>
-      <a class="btn filled" id="btn-save-avatar-download" download="sky-avatar.png">
+      <a class="btn filled" id="btn-save-avatar-download" download="sky-avatar">
         <span data-i="save"></span>
       </a>
     </div>
@@ -480,6 +480,25 @@ a.btn{text-decoration:none}
     <div class="row2">
       <button class="btn outlined" id="c-cancel" type="button" data-i="cancel"></button>
       <button class="btn danger" id="c-ok" type="button" disabled style="white-space:nowrap;"></button>
+    </div>
+  </div>
+</div>
+<div class="sheet" id="sheet-update" role="dialog" aria-modal="true">
+  <div class="sheet-top" data-grab><i></i><h2 data-i="updateTitle">光遇身高仪丨发现新版本</h2></div>
+  <div class="sheet-body" style="padding-top: 10px;">
+    
+    <div style="font-size: 14.5px; line-height: 1.8; color: var(--on-surface-variant); margin-bottom: 6px;">
+      <div><span data-i="updateCurrent">当前版本：</span><span id="cur-ver">-</span></div>
+      <div style="font-weight: 500; color: var(--on-surface);"><span data-i="updateLatest">最新版本：</span><span id="new-ver">-</span> (<span id="new-size">-</span>)</div>
+    </div>
+    
+    <div id="new-log" style="font-size: 14px; line-height: 1.7; color: var(--on-surface); white-space: pre-wrap;"></div>
+  </div>
+  
+  <div class="sheet-foot plain">
+    <div class="row2">
+      <button class="btn outlined" id="btn-update-later" type="button" data-i="updateLater">以后再说</button>
+      <a class="btn filled" id="btn-download-update" href="#" target="_blank" data-i="updateNow">立即更新</a>
     </div>
   </div>
 </div>
@@ -556,92 +575,106 @@ a.btn{text-decoration:none}
   var K_NICK = 'sky-height-nickname', K_SIGN = 'sky-height-sign', K_AVATAR = 'sky-height-avatar';
   var HMAX = 20;
   var I18N = {
-    zh: {
-      docTitle: '光遇身高仪',
-      ariaHelp: '如何获取二维码', ariaHistory: '历史记录', ariaSettings: '设置', ariaDelete: '删除这条记录', ariaAvatar: '更换头像',
-      lead: '请上传游戏内外观二维码的截图，光遇身高仪将本地化读取并处理您的身高、上限与下限数据。',
-      zoneTitle: '添加外观二维码', zoneHint: '导入截图、选择或拖入粘贴',
-      statusNone: '当前暂无外观二维码图片', statusReading: '正在寻找二维码...', statusOk: '处理成功！您的身高已计算完成',
-      toastDone: '测量完成',
-      errNotImage: '请选择图片文件', errRead: '无法读取这张图片', errDecoder: '二维码解码器不可用',
-      errNoQr: '图片里没有找到外观二维码', errPayload: '读到了二维码 但是无效的二维码',
-      labCurrent: '当前身高值', endMax: '最高', endMin: '最矮', labMax: '最高值（Max）', labMin: '最矮值（Min）',
-      details: '数据细节', range: '范围', again: '重新测量',
-      rawH: '身高系数', rawS: '体型基准',
-      expHeight: '<b>身高系数</b>：范围 -2.000（最矮）到 +2.000（最高） 数值越大越高',
-      expScale: '<b>体型基准</b>：角色固有的体型系数 终身固定 决定了你个人的最高与最矮上限',
-      expRange: '<b>范围</b>：数值只会在 Max 与 Min 之间变化',
-      tipFooter: '<b>Tip</b>：数值越小代表越高',
-      helpTitle: '如何获取外观二维码',
-      h1: '打开设置', h1s: '游戏内点击右上角齿轮',
-      h2: '找到二维码', h2s: '',
-      h3: '截图上传', h3s: '截一张图，回到本页上传',
-      histTitle: '测量历史', histEmpty: '还没有测量记录', histClear: '清空全部记录',
-      cDelTitle: '删除这条记录', cDelMsg: '删除后无法恢复', cDelOk: '确认删除',
-      cClrTitle: '清空全部记录', cClrMsg: '所有测量历史将被永久删除 无法恢复', cClrOk: '确认清空',
-      cancel: '取消', save: '保存', toastDel: '已删除这条记录', toastClr: '历史记录已清空',
-      setTitle: '设置', secAccount: '用户', secLang: '语言', secTheme: '外观',
-      thLight: '浅色', thDusk: '暮色', thDark: '暗色',
-      defaultName: '玩家', defaultSign: '点击添加你的个性签名',
-      editName: '编辑昵称', editSign: '编辑个性签名',
-      namePlaceholder: '输入昵称（最多6字）', signPlaceholder: '输入个性签名（最多24字）',
-      shuffleAvatar: '换一换头像',
-      avatarUpdated: '头像已更新', avatarInvalid: '头像图片无效', avatarTooLarge: '图片太大了 请换一张',
-      nameUpdated: '昵称已更新', signUpdated: '签名已更新',
-      chooseAvatar: '选择头像', localUpload: '从相册上传', builtinAvatars: '内置头像',
-      saveAvatar: '保存头像', longPressHint: '长按图片可直接保存 或点击下方按钮下载',
-      progressText: '正在检查 {c} / {t} 个运行模式',
-      nearMax: '距离你的最高上限还差 {n}', nearMin: '距离你的最矮下限还差 {n}',
-      atMax: '你正处于账号的最高上限！', atMin: '你正处于账号的最矮下限！',
-      ty0: '已达最高', ty1: '极高', ty2: '接近最高', ty3: '偏高', ty4: '略高于平均', ty5: '中等',
-      ty6: '略低于平均', ty7: '偏矮', ty8: '接近最矮', ty9: '极矮', ty10: '已达最矮',
-      netease: '网易版', international: '国际版',
-      pathNetease: '设置 → 更多 → 线下活动外观二维码',
-      pathIntl: '设置 → 账号 → 账户信息 → 造型二维码'
-    },
+zh: {
+  docTitle: '光遇身高仪',
+  ariaHelp: '如何获取二维码', ariaHistory: '历史记录', ariaSettings: '设置', ariaDelete: '删除这条记录', ariaAvatar: '更换头像',
+  lead: '请上传游戏内外观二维码的截图，光遇身高仪将本地化读取并处理您的身高、上限与下限数据。',
+  zoneTitle: '添加外观二维码', zoneHint: '导入截图、选择或拖入粘贴',
+  statusNone: '当前暂无外观二维码图片', statusReading: '正在寻找二维码...', statusOk: '处理成功！您的身高已计算完成',
+  toastDone: '测量完成',
+  errNotImage: '请选择图片文件', errRead: '无法读取这张图片', errDecoder: '二维码解码器不可用',
+  errNoQr: '图片里没有找到外观二维码', errPayload: '读到了二维码 但是无效的二维码',
+  labCurrent: '当前身高值', endMax: '最高', endMin: '最矮', labMax: '最高值（Max）', labMin: '最矮值（Min）',
+  details: '数据细节', range: '范围', again: '重新测量',
+  rawH: '身高系数', rawS: '体型基准',
+  expHeight: '<b>身高系数</b>：范围 -2.000（最矮）到 +2.000（最高） 数值越大越高',
+  expScale: '<b>体型基准</b>：角色固有的体型系数 终身固定 决定了你个人的最高与最矮上限',
+  expRange: '<b>范围</b>：数值只会在 Max 与 Min 之间变化',
+  tipFooter: '<b>Tip</b>：数值越小代表越高',
+  helpTitle: '如何获取外观二维码',
+  h1: '打开设置', h1s: '游戏内点击右上角齿轮',
+  h2: '找到二维码', h2s: '',
+  h3: '截图上传', h3s: '截一张图，回到本页上传',
+  histTitle: '测量历史', histEmpty: '还没有测量记录', histClear: '清空全部记录',
+  cDelTitle: '删除这条记录', cDelMsg: '删除后无法恢复', cDelOk: '确认删除',
+  cClrTitle: '清空全部记录', cClrMsg: '所有测量历史将被永久删除 无法恢复', cClrOk: '确认清空',
+  cancel: '取消', save: '保存', toastDel: '已删除这条记录', toastClr: '历史记录已清空',
+  setTitle: '设置', secAccount: '用户', secLang: '语言', secTheme: '外观',
+  thLight: '浅色', thDusk: '暮色', thDark: '暗色',
+  defaultName: '玩家', defaultSign: '点击添加你的个性签名',
+  editName: '编辑昵称', editSign: '编辑个性签名',
+  namePlaceholder: '输入昵称（最多6字）', signPlaceholder: '输入个性签名（最多24字）',
+  shuffleAvatar: '换一换头像',
+  avatarUpdated: '头像已更新', avatarInvalid: '头像图片无效', avatarTooLarge: '图片太大了 请换一张',
+  nameUpdated: '昵称已更新', signUpdated: '签名已更新',
+  chooseAvatar: '选择头像', localUpload: '从相册上传', builtinAvatars: '内置头像',
+  saveAvatar: '保存头像', longPressHint: '长按图片可直接保存 或点击下方按钮下载',
+  progressText: '正在检查 {c} / {t} 个运行模式',
+  nearMax: '距离你的最高上限还差 {n}', nearMin: '距离你的最矮下限还差 {n}',
+  atMax: '你正处于账号的最高上限！', atMin: '你正处于账号的最矮下限！',
+  ty0: '已达最高', ty1: '极高', ty2: '接近最高', ty3: '偏高', ty4: '略高于平均', ty5: '中等',
+  ty6: '略低于平均', ty7: '偏矮', ty8: '接近最矮', ty9: '极矮', ty10: '已达最矮',
+  netease: '网易版', international: '国际版',
+  pathNetease: '设置 → 更多 → 线下活动外观二维码',
+  pathIntl: '设置 → 账号 → 账户信息 → 造型二维码',
+  
+  updateTitle: '光遇身高仪丨发现新版本',
+  updateCurrent: '当前版本：',
+  updateLatest: '最新版本：',
+  updateLater: '以后再说',
+  updateNow: '立即更新',
+  updateIgnoreMsg: '30天后再次提醒'
+},
     en: {
-      docTitle: 'Sky Height Meter',
-      ariaHelp: 'How to get the QR code', ariaHistory: 'History', ariaSettings: 'Settings', ariaDelete: 'Delete this entry', ariaAvatar: 'Change avatar',
-      lead: 'Please upload a screenshot of your in-game Outfit QR code, Sky Height Meter will locally read and process your height and its limits',
-      zoneTitle: 'Add Outfit QR screenshot', zoneHint: 'Import, select, drag or paste',
-      statusNone: 'No Outfit QR image yet', statusReading: 'Searching for QR code...', statusOk: 'Processed Height calculated',
-      toastDone: 'Measurement complete',
-      errNotImage: 'Please choose an image file', errRead: 'Could not read this image', errDecoder: 'QR decoder unavailable',
-      errNoQr: 'No Outfit QR code found in the image', errPayload: 'QR code found but it is invalid',
-      labCurrent: 'Current height value', endMax: 'Tallest', endMin: 'Shortest', labMax: 'Tallest (Max)', labMin: 'Shortest (Min)',
-      details: 'Details', range: 'Range', again: 'Measure again',
-      rawH: 'Height Coeff', rawS: 'Body Scale',
-      expHeight: '<b>Height Coeff</b>: ranges from -2.000 (shortest) to +2.000 (tallest), a larger value means taller',
-      expScale: '<b>Body Scale</b>: your character\'s fixed body-size factor It sets your personal tallest and shortest limits',
-      expRange: '<b>Range</b>: the value only moves between Max and Min',
-      tipFooter: '<b>Tip</b>: A lower value means taller',
-      helpTitle: 'How to get your Outfit QR code',
-      h1: 'Open Settings', h1s: 'Tap the gear icon at the top right in the game',
-      h2: 'Find the QR code', h2s: '',
-      h3: 'Screenshot and upload', h3s: 'Take a screenshot, then upload it here',
-      histTitle: 'History', histEmpty: 'No measurements yet', histClear: 'Clear all history',
-      cDelTitle: 'Delete this entry', cDelMsg: 'This can\'t be undone', cDelOk: 'Delete',
-      cClrTitle: 'Clear all history', cClrMsg: 'All measurement history will be permanently deleted', cClrOk: 'Clear',
-      cancel: 'Cancel', save: 'Save', toastDel: 'Entry deleted', toastClr: 'History cleared',
-      setTitle: 'Settings', secAccount: 'Account', secLang: 'Language', secTheme: 'Appearance',
-      thLight: 'Light', thDusk: 'Dusk', thDark: 'Dark',
-      defaultName: 'Player', defaultSign: 'Tap to add your signature',
-      editName: 'Edit nickname', editSign: 'Edit signature',
-      namePlaceholder: 'Nickname (max 6 chars)', signPlaceholder: 'Signature (max 24 chars)',
-      shuffleAvatar: 'Shuffle avatar',
-      avatarUpdated: 'Avatar updated', avatarInvalid: 'Invalid avatar image', avatarTooLarge: 'Image too large, try another',
-      nameUpdated: 'Nickname updated', signUpdated: 'Signature updated',
-      chooseAvatar: 'Choose avatar', localUpload: 'Import from gallery', builtinAvatars: 'Built-in avatars',
-      saveAvatar: 'Save Avatar', longPressHint: 'Long press the image to save or click the button below',
-      progressText: 'Checking pattern {c} / {t}',
-      nearMax: '{n} away from your tallest limit', nearMin: '{n} away from your shortest limit',
-      atMax: 'You are at your tallest limit!', atMin: 'You are at your shortest limit!',
-      ty0: 'At max height', ty1: 'Tallest', ty2: 'Near tallest', ty3: 'Tall', ty4: 'Above average', ty5: 'Average',
-      ty6: 'Below average', ty7: 'Short', ty8: 'Near shortest', ty9: 'Shortest', ty10: 'At min height',
-      netease: 'NetEase', international: 'International',
-      pathNetease: 'Settings → More → Offline event Outfit QR code',
-      pathIntl: 'Settings → Account → Account Info → Outfit QR Code'
-    }
+  docTitle: 'Sky Height Meter',
+  ariaHelp: 'How to get the QR code', ariaHistory: 'History', ariaSettings: 'Settings', ariaDelete: 'Delete this entry', ariaAvatar: 'Change avatar',
+  lead: 'Please upload a screenshot of your in-game Outfit QR code, Sky Height Meter will locally read and process your height and its limits',
+  zoneTitle: 'Add Outfit QR screenshot', zoneHint: 'Import, select, drag or paste',
+  statusNone: 'No Outfit QR image yet', statusReading: 'Searching for QR code...', statusOk: 'Processed Height calculated',
+  toastDone: 'Measurement complete',
+  errNotImage: 'Please choose an image file', errRead: 'Could not read this image', errDecoder: 'QR decoder unavailable',
+  errNoQr: 'No Outfit QR code found in the image', errPayload: 'QR code found but it is invalid',
+  labCurrent: 'Current height value', endMax: 'Tallest', endMin: 'Shortest', labMax: 'Tallest (Max)', labMin: 'Shortest (Min)',
+  details: 'Details', range: 'Range', again: 'Measure again',
+  rawH: 'Height Coeff', rawS: 'Body Scale',
+  expHeight: '<b>Height Coeff</b>: ranges from -2.000 (shortest) to +2.000 (tallest), a larger value means taller',
+  expScale: '<b>Body Scale</b>: your character\'s fixed body-size factor It sets your personal tallest and shortest limits',
+  expRange: '<b>Range</b>: the value only moves between Max and Min',
+  tipFooter: '<b>Tip</b>: A lower value means taller',
+  helpTitle: 'How to get your Outfit QR code',
+  h1: 'Open Settings', h1s: 'Tap the gear icon at the top right in the game',
+  h2: 'Find the QR code', h2s: '',
+  h3: 'Screenshot and upload', h3s: 'Take a screenshot, then upload it here',
+  histTitle: 'History', histEmpty: 'No measurements yet', histClear: 'Clear all history',
+  cDelTitle: 'Delete this entry', cDelMsg: 'This can\'t be undone', cDelOk: 'Delete',
+  cClrTitle: 'Clear all history', cClrMsg: 'All measurement history will be permanently deleted', cClrOk: 'Clear',
+  cancel: 'Cancel', save: 'Save', toastDel: 'Entry deleted', toastClr: 'History cleared',
+  setTitle: 'Settings', secAccount: 'Account', secLang: 'Language', secTheme: 'Appearance',
+  thLight: 'Light', thDusk: 'Dusk', thDark: 'Dark',
+  defaultName: 'Player', defaultSign: 'Tap to add your signature',
+  editName: 'Edit nickname', editSign: 'Edit signature',
+  namePlaceholder: 'Nickname (max 6 chars)', signPlaceholder: 'Signature (max 24 chars)',
+  shuffleAvatar: 'Shuffle avatar',
+  avatarUpdated: 'Avatar updated', avatarInvalid: 'Invalid avatar image', avatarTooLarge: 'Image too large, try another',
+  nameUpdated: 'Nickname updated', signUpdated: 'Signature updated',
+  chooseAvatar: 'Choose avatar', localUpload: 'Import from gallery', builtinAvatars: 'Built-in avatars',
+  saveAvatar: 'Save Avatar', longPressHint: 'Long press the image to save or click the button below',
+  progressText: 'Checking pattern {c} / {t}',
+  nearMax: '{n} away from your tallest limit', nearMin: '{n} away from your shortest limit',
+  atMax: 'You are at your tallest limit!', atMin: 'You are at your shortest limit!',
+  ty0: 'At max height', ty1: 'Tallest', ty2: 'Near tallest', ty3: 'Tall', ty4: 'Above average', ty5: 'Average',
+  ty6: 'Below average', ty7: 'Short', ty8: 'Near shortest', ty9: 'Shortest', ty10: 'At min height',
+  netease: 'NetEase', international: 'International',
+  pathNetease: 'Settings → More → Offline event Outfit QR code',
+  pathIntl: 'Settings → Account → Account Info → Outfit QR Code',
+  
+  updateTitle: 'Sky Height Meter | New Update',
+  updateCurrent: 'Current: ',
+  updateLatest: 'Latest: ',
+  updateLater: 'Later',
+  updateNow: 'Update Now',
+  updateIgnoreMsg: 'Remind me in 30 days'
+}
   };
   var $ = function (id) { return document.getElementById(id); };
   var docEl = document.documentElement;
@@ -1048,48 +1081,67 @@ a.btn{text-decoration:none}
     if (tv) { tv.innerHTML = avatarHTML(profile.avatar); }
     renderAvatarGrid();
   }
-  function renderAvatarGrid() {
-    var grid = $('avatar-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
-    BUILTIN_AVATARS.forEach(function (av, i) {
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'avatar-opt';
-      btn.setAttribute('role', 'radio');
-      var isSel = profile.avatar.type === 'builtin' && profile.avatar.index === i;
-      btn.setAttribute('aria-checked', String(isSel));
-      btn.innerHTML = av.b64 ? '<img src="' + av.b64 + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : '';
-      var pressTimer;
-      var isLongPress = false;
-      btn.addEventListener('pointerdown', function (e) {
-        if (!av.b64) return;
-        isLongPress = false;
-        pressTimer = setTimeout(function () {
-          isLongPress = true;
-          $('save-avatar-img').src = av.b64;
-          $('btn-save-avatar-download').href = av.b64;
-          openSheet('sheet-save-avatar');
-        }, 500);
-      });
-      btn.addEventListener('pointerup', function () {
-        clearTimeout(pressTimer);
-      });
-      btn.addEventListener('pointerleave', function () {
-        clearTimeout(pressTimer);
-      });
-      btn.addEventListener('click', function (e) {
-        if (isLongPress) {
-          e.preventDefault();
-          return;
-        }
-        profile.avatar = { type: 'builtin', index: i };
-        saveProfile(); renderAvatar();
-        closeSheet('sheet-avatar', false);
-      });
-      grid.appendChild(btn);
+function renderAvatarGrid() {
+  var grid = $('avatar-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  BUILTIN_AVATARS.forEach(function (av, i) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'avatar-opt';
+    btn.setAttribute('role', 'radio');
+    var isSel = profile.avatar.type === 'builtin' && profile.avatar.index === i;
+    btn.setAttribute('aria-checked', String(isSel));
+    
+    btn.innerHTML = av.b64 ? '<img src="' + av.b64 + '" alt="" style="width:100%;height:100%;object-fit:cover;pointer-events:none;">' : '';
+    
+    var pressTimer = null;
+    var isLongPress = false;
+    var startX = 0, startY = 0;
+
+    btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+    btn.addEventListener('pointerdown', function (e) {
+      if (!av.b64) return;
+      isLongPress = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      clearTimeout(pressTimer);
+      
+      pressTimer = setTimeout(function () {
+        isLongPress = true;
+        if (navigator.vibrate) navigator.vibrate(50);
+        
+        $('save-avatar-img').src = av.b64;
+        $('btn-save-avatar-download').href = av.b64;
+        openSheet('sheet-save-avatar');
+      }, 600); 
     });
-  }
+
+    btn.addEventListener('pointermove', function (e) {
+      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) {
+        clearTimeout(pressTimer);
+      }
+    });
+
+    btn.addEventListener('pointerup', function () { clearTimeout(pressTimer); });
+    btn.addEventListener('pointercancel', function () { clearTimeout(pressTimer); });
+    btn.addEventListener('pointerleave', function () { clearTimeout(pressTimer); });
+
+    btn.addEventListener('click', function (e) {
+      if (isLongPress) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      profile.avatar = { type: 'builtin', index: i };
+      saveProfile(); renderAvatar();
+      closeSheet('sheet-avatar', false);
+    });
+
+    grid.appendChild(btn);
+  });
+}
   function renderProfile() {
     var nv = $('name-view'), sv = $('sign-view');
     if (nv) nv.textContent = profile.name || t('defaultName');
@@ -1220,6 +1272,7 @@ function importAvatar(file) {
     document.title = t('docTitle');
     translateStatic(); renderStatus(); renderResult(); renderHistory(); renderSettings();
   }
+  
   function renderSettings() {
     document.querySelectorAll('.seg').forEach(function (seg) {
       var cur = seg.getAttribute('data-seg') === 'lang' ? lang : themePref;
@@ -1227,6 +1280,7 @@ function importAvatar(file) {
     });
     renderProfile();
   }
+  
   document.querySelectorAll('.seg').forEach(function (seg) {
     seg.addEventListener('click', function (e) {
       var b = e.target.closest('button[data-v]'); if (!b) return;
@@ -1234,8 +1288,63 @@ function importAvatar(file) {
       if (seg.getAttribute('data-seg') === 'lang') setLang(v, true); else setTheme(v);
     });
   });
+  
   $('btn-settings').addEventListener('click', function () { renderSettings(); openSheet('sheet-settings'); });
   $('btn-top-avatar').addEventListener('click', function () { renderSettings(); openSheet('sheet-avatar'); });
+
+  const CURRENT_VER = '1.0.1';
+  const VERSION_URL = 'https://skyheight.pages.dev/version.json';
+  const K_UPDATE_IGNORE = 'sky-height-update-ignore';
+  const K_LAST_CHECK = 'sky-height-last-check';
+
+  async function checkUpdate() {
+    try {
+      const now = Date.now();
+
+      const ignoreTime = localStorage.getItem(K_UPDATE_IGNORE);
+      if (ignoreTime) {
+        const daysPassed = (now - Number(ignoreTime)) / (1000 * 60 * 60 * 24);
+        if (daysPassed < 30) return; 
+      }
+
+      const lastCheck = localStorage.getItem(K_LAST_CHECK);
+      if (lastCheck) {
+        const daysSinceLastCheck = (now - Number(lastCheck)) / (1000 * 60 * 60 * 24);
+        if (daysSinceLastCheck < 7) return; 
+      }
+
+      localStorage.setItem(K_LAST_CHECK, now);
+
+      const response = await fetch(VERSION_URL + '?t=' + now, { cache: 'no-store' });
+      if (!response.ok) return;
+      
+      const remote = await response.json();
+      const remoteVer = remote.version;
+
+      if (remoteVer !== CURRENT_VER) {
+        $('cur-ver').textContent = CURRENT_VER;
+        $('new-ver').textContent = remoteVer;
+        $('new-size').textContent = remote.size || '未知';
+        
+        $('new-log').textContent = (remote.changelog || '无更新说明').trim();
+        
+        $('btn-download-update').href = remote.url || '#';
+        
+        openSheet('sheet-update'); 
+      }
+    } catch (e) {
+      console.log('静默检查更新失败', e);
+    }
+  }
+
+  $('btn-update-later').addEventListener('click', function() {
+    localStorage.setItem(K_UPDATE_IGNORE, Date.now());
+    closeSheet('sheet-update', false);
+    toast(t('updateIgnoreMsg'), 'ok'); 
+  });
+
+  setTimeout(checkUpdate, 2000);
+
   loadProfile();
   applyTheme();
   setLang(lang, false);
