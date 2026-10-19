@@ -583,7 +583,7 @@ zh: {
   docTitle: '光遇身高仪',
   ariaHelp: '如何获取二维码', ariaHistory: '历史记录', ariaSettings: '设置', ariaDelete: '删除这条记录', ariaAvatar: '更换头像',
   lead: '请上传游戏内外观二维码的截图，光遇身高仪将本地化读取并处理您的身高、上限与下限数据。',
-  zoneTitle: '添加外观二维码', zoneHint: '导入截图、选择或拖入粘贴',
+  zoneTitle: '添加外观二维码', zoneHint: '分享导入截图、选择或拖入粘贴',
   statusNone: '当前暂无外观二维码图片', statusReading: '正在寻找二维码...', statusOk: '处理成功！您的身高已计算完成',
   toastDone: '测量完成',
   errNotImage: '请选择图片文件', errRead: '无法读取这张图片', errDecoder: '二维码解码器不可用',
@@ -1348,6 +1348,93 @@ function importAvatar(file) {
   });
 
   setTimeout(checkUpdate, 2000);
+
+  function handleSharedImage(fileOrBase64) {
+  if (!fileOrBase64) return;
+  
+  if (fileOrBase64 instanceof File) {
+    handleFile(fileOrBase64);
+    return;
+  }
+  
+  if (typeof fileOrBase64 === 'string' && fileOrBase64.indexOf('data:image') === 0) {
+    fetch(fileOrBase64)
+      .then(res => res.blob())
+      .then(blob => {
+        var f = new File([blob], "shared.jpg", { type: "image/jpeg" });
+        handleFile(f);
+      })
+      .catch(e => console.log('分享图片转码失败', e));
+    return;
+  }
+
+  if (typeof fileOrBase64 === 'string' && fileOrBase64.indexOf('file://') === 0) {
+    fetch(fileOrBase64)
+      .then(res => res.blob())
+      .then(blob => {
+        var f = new File([blob], "shared.jpg", { type: "image/jpeg" });
+        handleFile(f);
+      })
+      .catch(e => {
+        var img = new Image();
+        img.onload = function() {
+          var canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          canvas.toBlob(function(blob) {
+            var f = new File([blob], "shared.jpg", { type: "image/jpeg" });
+            handleFile(f);
+          }, 'image/jpeg');
+        };
+        img.onerror = function() { toast('无法读取这张分享的图片', 'err'); };
+        img.src = fileOrBase64;
+      });
+  }
+}
+
+if (window.plus) {
+  document.addEventListener('plusready', function() {
+    try {
+      var main = plus.android.runtimeMainActivity();
+      var Intent = plus.android.importClass("android.content.Intent");
+      var intent = main.getIntent();
+      if (intent.getAction() === Intent.ACTION_SEND) {
+        var uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        if (uri) {
+          plus.io.resolveLocalFileSystemURL(uri, function(entry) {
+            entry.file(function(file) {
+              var reader = new plus.io.FileReader();
+              reader.onloadend = function(e) { handleSharedImage(e.target.result); };
+              reader.readAsDataURL(file);
+            });
+          });
+        }
+      }
+    } catch(e) {}
+  });
+}
+
+window.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'share' && event.data.file) {
+    handleSharedImage(event.data.file);
+  }
+});
+
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    if (window.SharedImage) handleSharedImage(window.SharedImage);
+    if (window.sharedImageBase64) handleSharedImage(window.sharedImageBase64);
+    
+    var urlParams = new URLSearchParams(window.location.search);
+    var sharedUrl = urlParams.get('img') || urlParams.get('share');
+    if (sharedUrl) {
+      fetch(sharedUrl).then(r => r.blob()).then(blob => {
+        handleSharedImage(new File([blob], "shared.jpg", { type: "image/jpeg" }));
+      }).catch(() => {});
+    }
+  }, 1500);
+});
 
   loadProfile();
   applyTheme();
