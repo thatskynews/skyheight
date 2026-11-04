@@ -2295,12 +2295,71 @@ function renderLegal() {
       }
     } catch (e) { dlog('err', 'share', 'shareFail', { m: (e && e.message) || String(e) }); }
   }
-  if (window.plus && plus.android) initPlusShare();
-  else document.addEventListener('plusready', initPlusShare);
 
-  window.addEventListener('message', function (event) {
-    if (event.data && event.data.type === 'share' && event.data.file) handleSharedImage(event.data.file, 'postMessage');
-  });
+  function initWtaShare() {
+    window.addEventListener('wta:share', async (e) => {
+      dlogRaw('action', 'share', '收到 WTA 分享事件 / received WTA share event');
+      var items = e.detail.items;
+      if (!items || !items.length) return;
+
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (item.type !== 'image') continue;
+
+        dlogRaw('info', 'share', '正在读取分享图片 / reading shared image: ' + item.name + ' (' + item.size + ' bytes)');
+
+        try {
+          var dataUrl = await item.readDataUrl();
+          
+          if (dataUrl) {
+            dlogRaw('ok', 'share', '读取 DataURL 成功 / DataURL read success, entering identification');
+            var file = dataURLtoFile(dataUrl, item.name || 'share.jpg');
+            handleFile(file, 'share');
+            
+            if (window.WTAShareInbox && window.WTAShareInbox.consume) {
+              window.WTAShareInbox.consume(item.id);
+              dlogRaw('info', 'share', '已消费分享条目 / consumed share item: ' + item.id);
+            }
+            break;
+          }
+        } catch (err) {
+          dlogRaw('err', 'share', '读取分享图片失败 / failed to read shared image: ' + (err.message || err));
+        }
+      }
+    });
+
+    if (window.WTAShareInbox && window.WTAShareInbox.peek) {
+      var pending = window.WTAShareInbox.peek();
+      if (pending && pending.length > 0) {
+        dlogRaw('info', 'share', '发现后台挂起的分享 / found pending share, triggering actively');
+        window.dispatchEvent(new CustomEvent('wta:share', { detail: { items: pending } }));
+      }
+    }
+    
+    return true;
+  }
+
+  function dataURLtoFile(dataurl, filename) {
+    var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8ClampedArray(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, {type:mime});
+  }
+
+  if (window.WTAShareInbox || window.NativeShareBridge) {
+    initWtaShare();
+  } 
+  else if (window.plus && plus.android) {
+    initPlusShare();
+  } 
+  else {
+    document.addEventListener('plusready', initPlusShare);
+    window.addEventListener('message', function (event) {
+      if (event.data && event.data.type === 'share' && event.data.file) handleSharedImage(event.data.file, 'postMessage');
+    });
+  }
 
   window.addEventListener('load', function () {
     dlog('info', 'lifecycle', 'loaded', { ms: Math.round((window.performance && performance.now ? performance.now() : 0) - BOOT_PERF) });
