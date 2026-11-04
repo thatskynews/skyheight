@@ -1094,7 +1094,7 @@ zh: {
   var ICON_X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6 18 18M18 6 6 18"/></svg>';
   var CURRENT_VER = '1.0.2', CURRENT_BUILD = '1014';
   var WEB_URL = 'https://skyheight.pages.dev';
-  var SHARE_URL = 'https://skyheight.pages.dev/PunchLog.apk';
+  var SHARE_URL = 'https://skyheight.pages.dev/SkyHeight.apk';
   var FEEDBACK_EMAIL = 'goskynews@outlook.com';
   var DEV_MAX = 1000, K_DEVLOG = 'sky-height-devlog';
   var BOOT_TS = Date.now();
@@ -1659,7 +1659,6 @@ document.addEventListener('paste', function (e) {
     if (v) { v.className = 'avatar'; v.innerHTML = avatarHTML(profile.avatar); }
     var tv = $('top-avatar-view');
     if (tv) { tv.innerHTML = avatarHTML(profile.avatar); }
-    renderAvatarGrid();
   }
 function renderAvatarGrid() {
   var grid = $('avatar-grid');
@@ -1767,7 +1766,9 @@ function importAvatar(file) {
   };
   reader.readAsDataURL(file);
 }
-  $('avatar-btn').addEventListener('click', function () { dlog('action', 'avatar', 'btnAvatar'); openSheet('sheet-avatar'); });
+  $('avatar-btn').addEventListener('click', function () { dlog('action', 'avatar', 'btnAvatar'); openSheet('sheet-avatar');
+  renderAvatarGrid();   
+  });
   $('btn-avatar-local').addEventListener('click', function () { $('avatar-file').click(); });
   $('avatar-file').addEventListener('change', function () {
     var f = this.files[0];
@@ -1991,7 +1992,9 @@ function importAvatar(file) {
 })();
 
   $('btn-settings').addEventListener('click', function () { dlog('action', 'entry', 'btnSettings'); renderSettings(); openSheet('sheet-settings'); });
-  $('btn-top-avatar').addEventListener('click', function () { dlog('action', 'entry', 'btnAvatar'); renderSettings(); openSheet('sheet-avatar'); });
+  $('btn-top-avatar').addEventListener('click', function () { dlog('action', 'entry', 'btnAvatar'); renderSettings(); openSheet('sheet-avatar');
+  renderAvatarGrid();
+  });
 
   var VERSION_URL = 'https://skyheight.pages.dev/version.json';
   var K_UPDATE_IGNORE = 'sky-height-update-ignore';
