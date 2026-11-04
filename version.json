@@ -2,6 +2,6 @@
   "version": "1.0.2",
   "build": "1014",
   "size": "11.04MB",
-  "changelog": "- 版本内部构建优化\n- 优化外观二维码检查",
+  "changelog": "- 版本内部构建优化/Internal build optimization\n- 优化外观二维码检查/Optimized appearance QR code inspection",
   "url": "https://skyheight.pages.dev/SkyHeight.apk"
 }
