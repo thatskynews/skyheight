@@ -1,6 +1,7 @@
 {
-  "version": "1.0.1",
-  "size": "12.0MB",
-  "changelog": "- 无内容\n- 无内容\n- 无内容",
+  "version": "1.0.2",
+  "build": "1014",
+  "size": 11.04MB",
+  "changelog": "- 版本内部构建优化\n- 优化外观二维码检查\n",
   "url": "https://skyheight.pages.dev/SkyHeight.apk"
 }
