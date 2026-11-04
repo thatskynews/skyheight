@@ -2323,24 +2323,49 @@ function renderLegal() {
   setLang(lang, false);
   renderResult();
   dlog('info', 'boot', 'boot', {
-  v: CURRENT_VER,
-  b: CURRENT_BUILD,
-  ms: Math.round((window.performance && performance.now ? performance.now() : 0) - BOOT_PERF)
-});
+    v: CURRENT_VER,
+    b: CURRENT_BUILD,
+    ms: Math.round((window.performance && performance.now ? performance.now() : 0) - BOOT_PERF)
+  });
   dlogRaw('info', 'env', navigator.userAgent);
 
   (function loadAvatarsAsync() {
+    var t0 = Date.now();
+    var src = 'avatars.js';
+    dlogRaw('info', 'boot', 'avatars.js 开始加载 · ' + src);
+
     var s = document.createElement('script');
-    s.src = 'avatars.js';
+    s.src = src;
     s.async = true;
+
     s.onload = function () {
+      var ms = Date.now() - t0;
+      var arr = window.BUILTIN_AVATARS;
+      var n = Array.isArray(arr) ? arr.length : -1;
+
+      if (!Array.isArray(arr)) {
+        dlogRaw('err', 'boot', 'avatars.js 已加载但 BUILTIN_AVATARS 不是数组 · ' + ms + 'ms');
+      } else if (n === 0) {
+        dlogRaw('warn', 'boot', 'avatars.js 已加载但数组为空（0 项）· ' + ms + 'ms');
+      } else {
+        var first = arr[0] || {};
+        var hasB64 = typeof first.b64 === 'string' && first.b64.indexOf('data:image') === 0;
+        dlogRaw(hasB64 ? 'ok' : 'warn', 'boot',
+          'avatars.js 加载成功 · ' + n + ' 项 · ' + ms + 'ms' +
+          (hasB64 ? '' : ' · 首项缺少 b64/data:image'));
+      }
+
       renderAvatar();
       renderProfile();
       if (openSheetId === 'sheet-avatar') renderAvatarGrid();
     };
+
     s.onerror = function () {
+      var ms = Date.now() - t0;
+      dlogRaw('err', 'boot', 'avatars.js 加载失败（404 / 网络 / 被拦截）· ' + ms + 'ms');
       dlog('err', 'boot', 'avatarsLoadFail');
     };
+
     document.head.appendChild(s);
   })();
 })(typeof window !== 'undefined' ? window : globalThis);
