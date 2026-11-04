@@ -1639,10 +1639,13 @@ document.addEventListener('paste', function (e) {
     } catch (e) {}
   }
   function saveProfile() {
-    var ok = lsSet(K_NICK, profile.name) && lsSet(K_SIGN, profile.sign) && lsSet(K_AVATAR, JSON.stringify(profile.avatar));
-    if (!ok) toast(t('storageFail'), 'err');
-    return ok;
-  }
+  var ok1 = lsSet(K_NICK, profile.name);
+  var ok2 = lsSet(K_SIGN, profile.sign);
+  var ok3 = lsSet(K_AVATAR, JSON.stringify(profile.avatar));
+  var ok = ok1 && ok2 && ok3;
+  if (!ok) toast(t('storageFail'), 'err');
+  return ok;
+}
   function avatarHTML(a) {
     if (a.type === 'image') {
       return '<img src="' + a.value + '" alt="">';
@@ -1793,9 +1796,13 @@ function importAvatar(file) {
     saveProfile(); renderAvatar();
   });
   var editMode = null;
+      function getMax(mode) {
+      if (lang === 'zh') return mode === 'name' ? 6 : 24;
+      return mode === 'name' ? 16 : 64;
+    }
   function openEdit(mode) {
     editMode = mode;
-    var max = mode === 'name' ? 6 : 24;
+    var max = getMax(mode);
     var val = mode === 'name' ? profile.name : profile.sign;
     $('e-title').textContent = t(mode === 'name' ? 'editName' : 'editSign');
     var input = $('e-input');
@@ -1809,12 +1816,16 @@ function importAvatar(file) {
   $('name-btn').addEventListener('click', function () { openEdit('name'); });
   $('sign-btn').addEventListener('click', function () { openEdit('sign'); });
   $('e-input').addEventListener('input', function () {
-    var max = editMode === 'name' ? 6 : 24;
-    $('e-count').textContent = charLen(this.value) + '/' + max;
-  });
+  var max = getMax(editMode);
+  var n = charLen(this.value);
+  var cnt = $('e-count');
+  cnt.textContent = n + '/' + max;
+  cnt.style.color = n > max ? 'var(--err)' : '';
+});
   $('e-cancel').addEventListener('click', function () { closeSheet('sheet-edit', false); });
   $('e-save').addEventListener('click', function () {
-    var max = editMode === 'name' ? 6 : 24;
+  var max = getMax(editMode);
+  var val = clampChars($('e-input').value.trim(), max);
     var val = clampChars($('e-input').value.trim(), max);
     if (editMode === 'name') { profile.name = val; }
     else { profile.sign = val; }
@@ -2047,7 +2058,11 @@ function renderLegal() {
       '<li>在系统设置中清除本应用数据</li><li>卸载本应用</li></ul>' +
       '<h3>联系方式</h3><p>对本条款或隐私政策有疑问亦或是功能性产品反馈等，请联系：' + mail + '</p>' +
       '<h3>补充说明</h3>' +
-      '<ul><li>您通过内部链接访问的网页数据处理应遵循各方网站自身的条款与隐私政策。</li></ul>';
+      '<ul><li>您通过内部链接访问的网页数据处理应遵循各方网站自身的条款与隐私政策。</li></ul>' +
+'<div class="legal-copyright">' +
+'  <p>SkyHeight 保留对本产品及其相关文档、源代码的权利。未经许可不得复制修改或用于其他用途。</p>' +
+'  <p>©SkyHeight. All rights reserved.</p>' +
+'</div>';
   } else {
     html =
       '<h3>Terms of Service</h3>' +
@@ -2069,7 +2084,11 @@ function renderLegal() {
       '<li>Clear the App\'s data in system settings</li><li>Uninstall the App</li></ul>' +
       '<h3>Contact</h3><p>For questions about these terms or privacy policy, or for functional product feedback, please contact: ' + mail + '</p>' +
       '<h3>Additional Notes</h3>' +
-      '<ul><li>Data processing on web pages you access through internal links follows the terms and privacy policies of the respective websites.</li></ul>';
+      '<ul><li>Your use of the web pages accessed through internal links shall be governed by the terms and privacy policies of the respective websites.</li></ul>' +
+'<div class="legal-copyright">' +
+'  <p>SkyHeight reserves all rights to this product and its related documentation and source code. Without permission, you may not copy, modify, or use it for any other purpose.</p>' +
+'  <p>©SkyHeight. All rights reserved.</p>' +
+'</div>';
   }
   box.innerHTML = html;
   var upd = $('legal-updated'); if (upd) upd.textContent = t('legalUpdated', { d: '2026-11-04' });
