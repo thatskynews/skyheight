@@ -390,52 +390,141 @@ a.btn{text-decoration:none}
 @media (prefers-reduced-motion: reduce){
   .ibtn,.ibtn::after,.ibtn:active,.ibtn:active::after,.more-row::after,.more-row:active::after{transition-duration:.01ms}
 }
-@media (min-width: 768px) {
+@media (min-width: 960px) {
   .floating-top {
-    max-width: 680px;
+    max-width: 1100px;
     width: 100%;
     margin: 0 auto;
-    padding: 16px 0;
+    padding: 20px 0;
     left: 50%;
     right: auto;
     transform: translateX(-50%);
   }
+  
   .app {
-    max-width: 680px;
-    padding-top: calc(env(safe-area-inset-top) + 90px);
+    max-width: 1100px;
+    padding-top: 90px;
   }
+
   .lead {
     text-align: center;
     font-size: 15px;
-    margin-bottom: 24px;
+    margin-bottom: 28px;
   }
+
   .zone {
-    min-height: 200px;
+    min-height: 280px;
   }
+  
   .preview {
-    max-height: 320px;
+    max-height: 380px;
   }
+
+  .result {
+    margin-top: 24px;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0 48px;
+    padding: 36px 48px;
+  }
+
+  .hero .lab {
+    grid-column: 1 / -1;
+    margin-bottom: 8px;
+  }
+
+  .hero .num {
+    grid-column: 1;
+    font-size: 76px;
+  }
+
+  .hero .type, .hero .desc {
+    grid-column: 1;
+  }
+
+  .hero .meter {
+    grid-column: 2;
+    grid-row: 2 / 5;
+    margin-top: 0;
+  }
+
+  .track {
+    height: 12px;
+  }
+  
+  .dot {
+    width: 16px;
+    height: 32px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  .grid {
+    gap: 24px;
+    margin-top: 24px;
+  }
+
+  .cell {
+    padding: 24px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .cell .lab {
+    font-size: 15px;
+  }
+
+  .cell .val {
+    font-size: 36px;
+    margin-top: 0;
+  }
+
+  .more {
+    margin-top: 24px;
+  }
+
+  .more-head {
+    padding: 20px 32px;
+    font-size: 16px;
+  }
+
   .fab {
     position: static;
     transform: none;
-    margin: 32px auto 0;
-    width: 100%;
-    max-width: 100%;
+    margin: 40px auto 0;
+    width: 320px;
   }
+  
   .fab:active {
-    transform: scale(.98);
+    transform: scale(.96);
   }
+
   .fab.hidden {
     display: none;
   }
+
+  .social-links {
+    margin: 40px 0 20px;
+  }
+
   .sheet {
-    max-width: 680px;
+    max-width: 800px;
   }
 }
 
-@media (min-width: 1200px) {
-  .app, .floating-top, .sheet {
-    max-width: 720px;
+@media (min-width: 1600px) {
+  .app, .floating-top {
+    max-width: 1200px;
+  }
+  .hero {
+    padding: 40px 56px;
+  }
+  .hero .num {
+    font-size: 88px;
   }
 }
 </style>
