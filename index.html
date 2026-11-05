@@ -392,18 +392,19 @@ a.btn{text-decoration:none}
 }
 @media (min-width: 960px) {
   .floating-top {
-    max-width: 1100px;
+    max-width: 100%;
     width: 100%;
-    margin: 0 auto;
-    padding: 20px 0;
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
+    margin: 0;
+    padding: 24px 40px;
+    left: 0;
+    right: 0;
+    transform: none;
   }
   
   .app {
     max-width: 1100px;
-    padding-top: 90px;
+    padding-top: 100px;
+    padding-bottom: 120px;
   }
 
   .lead {
@@ -414,10 +415,12 @@ a.btn{text-decoration:none}
 
   .zone {
     min-height: 280px;
+    border-radius: 28px;
   }
   
   .preview {
     max-height: 380px;
+    border-radius: 20px;
   }
 
   .result {
@@ -430,6 +433,7 @@ a.btn{text-decoration:none}
     align-items: center;
     gap: 0 48px;
     padding: 36px 48px;
+    border-radius: 28px;
   }
 
   .hero .lab {
@@ -472,6 +476,7 @@ a.btn{text-decoration:none}
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-radius: 20px;
   }
 
   .cell .lab {
@@ -485,6 +490,7 @@ a.btn{text-decoration:none}
 
   .more {
     margin-top: 24px;
+    border-radius: 20px;
   }
 
   .more-head {
@@ -497,6 +503,7 @@ a.btn{text-decoration:none}
     transform: none;
     margin: 40px auto 0;
     width: 320px;
+    border-radius: 99px;
   }
   
   .fab:active {
@@ -508,17 +515,21 @@ a.btn{text-decoration:none}
   }
 
   .social-links {
-    margin: 40px 0 20px;
+    margin: 32px 0 0;
   }
 
   .sheet {
     max-width: 800px;
+    border-radius: 32px;
   }
 }
 
 @media (min-width: 1600px) {
-  .app, .floating-top {
+  .app {
     max-width: 1200px;
+  }
+  .floating-top {
+    padding: 24px 60px;
   }
   .hero {
     padding: 40px 56px;
