@@ -395,16 +395,35 @@ a.btn{text-decoration:none}
     max-width: 100%;
     width: 100%;
     margin: 0;
-    padding: 24px 40px;
+    padding: 28px 48px;
     left: 0;
     right: 0;
     transform: none;
+    align-items: center;
   }
   
+  /* 放大顶部头像和图标按钮 */
+  .top-avatar, .ibtn {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+  }
+  .top-avatar-inner svg {
+    width: 28px;
+    height: 28px;
+  }
+  .ibtn svg {
+    width: 26px;
+    height: 26px;
+  }
+  .actions {
+    gap: 12px;
+  }
+
   .app {
     max-width: 1100px;
-    padding-top: 100px;
-    padding-bottom: 120px;
+    padding-top: 110px;
+    padding-bottom: 160px; /* 加大底部留白，让按钮往上提，不贴底 */
   }
 
   .lead {
@@ -498,12 +517,14 @@ a.btn{text-decoration:none}
     font-size: 16px;
   }
 
+  /* 恢复圆角矩形，增加高度 */
   .fab {
     position: static;
     transform: none;
-    margin: 40px auto 0;
-    width: 320px;
-    border-radius: 99px;
+    margin: 48px auto 0;
+    width: 280px;
+    height: 54px;
+    border-radius: var(--radius-btn);
   }
   
   .fab:active {
@@ -529,7 +550,7 @@ a.btn{text-decoration:none}
     max-width: 1200px;
   }
   .floating-top {
-    padding: 24px 60px;
+    padding: 32px 64px;
   }
   .hero {
     padding: 40px 56px;
