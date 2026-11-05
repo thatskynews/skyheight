@@ -390,6 +390,57 @@ a.btn{text-decoration:none}
 @media (prefers-reduced-motion: reduce){
   .ibtn,.ibtn::after,.ibtn:active,.ibtn:active::after,.more-row::after,.more-row:active::after{transition-duration:.01ms}
 }
+@media (min-width: 768px) {
+  .floating-top {
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 16px 0;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+  .app {
+    max-width: 760px;
+    padding-top: calc(env(safe-area-inset-top) + 100px);
+  }
+  .lead {
+    text-align: center;
+    font-size: 15px;
+    margin-bottom: 24px;
+  }
+  .zone {
+    min-height: 200px;
+  }
+  .preview {
+    max-height: 320px;
+  }
+  .fab {
+    position: static;
+    transform: none;
+    margin: 32px auto 0;
+    width: 100%;
+    max-width: 100%;
+  }
+  .fab:active {
+    transform: scale(.98);
+  }
+  .fab.hidden {
+    display: none;
+  }
+  .sheet {
+    max-width: 760px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .app, .floating-top {
+    max-width: 860px;
+  }
+  .sheet {
+    max-width: 860px;
+  }
+}
 </style>
 </head>
 <body>
