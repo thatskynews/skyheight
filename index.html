@@ -392,7 +392,7 @@ a.btn{text-decoration:none}
 }
 @media (min-width: 768px) {
   .floating-top {
-    max-width: 760px;
+    max-width: 680px;
     width: 100%;
     margin: 0 auto;
     padding: 16px 0;
@@ -401,8 +401,8 @@ a.btn{text-decoration:none}
     transform: translateX(-50%);
   }
   .app {
-    max-width: 760px;
-    padding-top: calc(env(safe-area-inset-top) + 100px);
+    max-width: 680px;
+    padding-top: calc(env(safe-area-inset-top) + 90px);
   }
   .lead {
     text-align: center;
@@ -429,16 +429,13 @@ a.btn{text-decoration:none}
     display: none;
   }
   .sheet {
-    max-width: 760px;
+    max-width: 680px;
   }
 }
 
 @media (min-width: 1200px) {
-  .app, .floating-top {
-    max-width: 860px;
-  }
-  .sheet {
-    max-width: 860px;
+  .app, .floating-top, .sheet {
+    max-width: 720px;
   }
 }
 </style>
