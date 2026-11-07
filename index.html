@@ -874,162 +874,123 @@ a.btn{text-decoration:none}
     if (current < 0 || current > 15 || tallest < 0 || shortest > 15) return null;
     return { current: current, rawHeight: height, rawScale: scale, tallest: tallest, shortest: shortest };
   }
-  function firstNumber(text) {
-    var m = text.match(/-?\d+\.\d+|-?\d+\.?\d*/);
-    return m ? Number.parseFloat(m[0]) : null;
-  }
 function decodeHeightPayload(rawData, onLog) {
   if (!rawData || typeof rawData !== 'string') return null;
 
   function emit(k, p) { if (onLog) { try { onLog(k, p); } catch (e) {} } }
   var log = function(){
-  var m = Array.prototype.join.call(arguments, ' ');
-  emit('decLog', { m: m });
-};
+    var m = Array.prototype.join.call(arguments, ' ');
+    emit('decLog', { m: m });
+  };
 
   function validate(h, s) {
     if (!isFinite(h) || !isFinite(s)) return null;
-    if (h < -2 || h > 2) return null;
-    if (s < -2 || s > 2) return null;
+    if (h < -2.01 || h > 2.01) return null;
+    if (s < -2.01 || s > 2.01) return null;
     return calculateStats(h, s);
   }
 
-  function buildCandidates(raw) {
-    var list = [], seen = {};
-    function push(s, tag) {
-      if (!s || s.length < 20 || seen[s]) return;
-      seen[s] = true;
-      list.push({ s: s, tag: tag });
+  function lz4Decode(input) {
+    var output = []; var i = 0; var len = input.length;
+    while (i < len) {
+      var token = input[i++]; var literalLength = token >> 4;
+      if (literalLength === 15) { var l; do { l = input[i++]; literalLength += l; } while (l === 255); }
+      for (var j = 0; j < literalLength; j++) output.push(input[i++]);
+      if (i >= len) break;
+      var offset = input[i++] | (input[i++] << 8); if (offset === 0) break;
+      var matchLength = (token & 0x0F) + 4;
+      if (matchLength === 19) { var l; do { l = input[i++]; matchLength += l; } while (l === 255); }
+      var start = output.length - offset;
+      for (var j = 0; j < matchLength; j++) output.push(output[start + j]);
     }
-    var urlDecoded = raw;
-    try { urlDecoded = decodeURIComponent(raw); } catch (e) {}
-    [raw, urlDecoded].forEach(function (src, idx) {
-      var p = idx === 0 ? 'raw' : 'urldec';
-      push(src, p + ':whole');
-      var i1 = src.indexOf('ImJvZHki');
-      if (i1 >= 0) {
-        push(src.slice(i1), p + ':ImJvZHki');
-        if (i1 >= 4) push(src.slice(i1 - 4), p + ':ImJvZHki-4');
-        if (i1 >= 8) push(src.slice(i1 - 8), p + ':ImJvZHki-8');
-        if (i1 + 12 <= src.length) push(src.slice(i1 + 12), p + ':ImJvZHki+12');
-      }
-      var i2 = src.indexOf('o=');
-      if (i2 >= 0) {
-        var afterO = src.slice(i2 + 2);
-        push(afterO, p + ':o=');
-        if (afterO.length > 4) push(afterO.slice(4), p + ':o=+4');
-        if (afterO.length > 8) push(afterO.slice(8), p + ':o=+8');
-      }
-      var i3 = src.indexOf('eyJ');
-      if (i3 >= 0) push(src.slice(i3), p + ':eyJ');
-      var i4 = src.lastIndexOf('eyJ');
-      if (i4 >= 0 && i4 !== i3) push(src.slice(i4), p + ':lastEyJ');
-    });
-    return list;
+    return new Uint8Array(output);
   }
 
-  function normalizeVariants(s) {
-    var out = [], seen = {};
-    function push(x) {
-      if (!x || seen[x]) return;
-      seen[x] = true;
-      out.push(x);
-    }
-    var a = s.replace(/-/g, '+').replace(/_/g, '/');
-    push(a);
-    push(a + '='.repeat((4 - a.length % 4) % 4));
-    var b = a.replace(/[^A-Za-z0-9+/=]/g, '');
-    push(b);
-    push(b + '='.repeat((4 - b.length % 4) % 4));
-    var c = a.replace(/[^A-Za-z0-9+/=].*$/, '');
-    push(c);
-    push(c + '='.repeat((4 - c.length % 4) % 4));
-    var d = s.replace(/[^A-Za-z0-9+/=]/g, '');
-    push(d);
-    push(d + '='.repeat((4 - d.length % 4) % 4));
-    return out;
+function getB64Candidates(raw) {
+  var list = [], seen = {};
+  function push(x) { if (!x || seen[x]) return; seen[x] = true; list.push(x); }
+  
+  var match = raw.match(/o=([A-Za-z0-9+/=_\-]+)/);
+  if (match) {
+    var b64 = match[1].replace(/-/g, '+').replace(/_/g, '/').replace(/[^A-Za-z0-9+/=]/g, '');
+    while (b64.length % 4 !== 0) b64 += '=';
+    push(b64);
   }
-
-  var NUM = '-?\\d+\\.?\\d*(?:[eE][-+]?\\d+)?';
-
-function extractByField(text) {
-  var mh = text.match(new RegExp('["\']?height["\']?\\s*[:=]\\s*(' + NUM + ')', 'i'));
-  var ms = text.match(new RegExp('["\']?scale["\']?\\s*[:=]\\s*(' + NUM + ')', 'i'));
-  if (mh && ms) {
-    var r = validate(parseFloat(mh[1]), parseFloat(ms[1]));
-    if (r) return r;
-  }
-  var mh1b = text.match(new RegExp('eight["\']?\\s*[:=]\\s*(' + NUM + ')', 'i'));
-  var ms1b = text.match(new RegExp('cale["\']?\\s*[:=]\\s*(' + NUM + ')', 'i'));
-  if (mh1b && ms1b) {
-    var r1b = validate(parseFloat(mh1b[1]), parseFloat(ms1b[1]));
-    if (r1b) return r1b;
-  }
-  var mh2 = text.match(new RegExp('["\']h["\']\\s*:\\s*(' + NUM + ')'));
-  var ms2 = text.match(new RegExp('["\']s["\']\\s*:\\s*(' + NUM + ')'));
-  if (mh2 && ms2) {
-    var r2 = validate(parseFloat(mh2[1]), parseFloat(ms2[1]));
-    if (r2) return r2;
-  }
-  var mh3 = text.match(new RegExp('(?:height|身高)[^0-9-]{0,8}(' + NUM + ')', 'i'));
-  var ms3 = text.match(new RegExp('(?:scale|体型)[^0-9-]{0,8}(' + NUM + ')', 'i'));
-  if (mh3 && ms3) {
-    var r3 = validate(parseFloat(mh3[1]), parseFloat(ms3[1]));
-    if (r3) return r3;
-  }
-  return null;
+  
+  var whole = raw.replace(/-/g, '+').replace(/_/g, '/').replace(/[^A-Za-z0-9+/=]/g, '');
+  while (whole.length % 4 !== 0) whole += '=';
+  push(whole);
+  
+  return list;
 }
 
-  function bruteForcePairs(text) {
-    var nums = (text.match(new RegExp(NUM, 'g')) || []).map(Number)
-      .filter(function (v) { return isFinite(v) && Math.abs(v) <= 2; }).slice(0, 80);
-    if (nums.length < 2) return null;
-    var order = nums.map(function (v, i) { return { v: v, i: i }; })
-                    .sort(function (a, b) { return Math.abs(b.v) - Math.abs(a.v); });
-    for (var i = 0; i < order.length; i++) {
-      for (var j = 0; j < order.length; j++) {
-        if (i === j) continue;
-        if (Math.abs(order[i].v) < Math.abs(order[j].v)) continue;
-        var r = validate(order[i].v, order[j].v);
-        if (r) {
-          log('[brute] hit h=', order[i].v, 's=', order[j].v);
-          return r;
-        }
-      }
-    }
-    return null;
-  }
-
-  var decodedTexts = [];
-  var candidates = buildCandidates(rawData);
+  var candidates = getB64Candidates(rawData);
   emit('decCand', { n: candidates.length });
 
-  for (var ci = 0; ci < candidates.length; ci++) {
-    var cand = candidates[ci];
-    var variants = normalizeVariants(cand.s);
-    for (var vi = 0; vi < variants.length; vi++) {
-      var decoded;
-      try { decoded = atob(variants[vi]); } catch (e) { continue; }
-      if (!decoded || decoded.length < 10) continue;
-      log('[decoded]', cand.tag, '→', decoded);
-      var r = extractByField(decoded);
-      if (r) {
-        emit('decHit', { tag: cand.tag, m: 'field' });
-        return r;
+  for (var i = 0; i < candidates.length; i++) {
+    try {
+      var binStr = atob(candidates[i]);
+      var bytes = new Uint8Array(binStr.length);
+      for (var j = 0; j < binStr.length; j++) bytes[j] = binStr.charCodeAt(j);
+
+      var decompressedBytes = lz4Decode(bytes);
+      var jsonStr = new TextDecoder("utf-8").decode(decompressedBytes);
+      
+      log('[decoded]', 'lz4-json', '→', jsonStr);
+
+      try {
+        var json = JSON.parse(jsonStr);
+        if (json && json.body !== undefined && json.height !== undefined && json.scale !== undefined) {
+            var h = parseFloat(json.height);
+            var s = parseFloat(json.scale);
+            if (isFinite(h) && isFinite(s) && h >= -2.01 && h <= 2.01 && s >= -2.01 && s <= 2.01) {
+                var r = validate(h, s);
+                if (r) {
+                    emit('decHit', { tag: 'lz4', m: 'json-parse' });
+                    return r;
+                }
+            }
+        }
+      } catch (e) {
       }
-      decodedTexts.push({ text: decoded, tag: cand.tag });
+
+      if (jsonStr.indexOf('"body"') !== -1 || jsonStr.indexOf('"wing"') !== -1) {
+          
+          var mh = jsonStr.match(/"[^"]*(?:eight|ght)[^"]*"\s*:\s*(-?\d+(?:\.\d+)?)/i);
+          var ms = jsonStr.match(/"[^"]*(?:cale|scal)[^"]*"\s*:\s*(-?\d+(?:\.\d+)?)/i);
+          
+          if (mh && ms) {
+              var h2 = parseFloat(mh[1]);
+              var s2 = parseFloat(ms[1]);
+              if (h2 >= -2.01 && h2 <= 2.01 && s2 >= -2.01 && s2 <= 2.01) {
+                  var r2 = validate(h2, s2);
+                  if (r2) {
+                      emit('decHit', { tag: 'lz4', m: 'suffix-fallback' });
+                      return r2;
+                  }
+              }
+          }
+
+          var pairMatch = jsonStr.match(/"[^"]{2,8}"\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*"[^"]{2,8}"\s*:\s*(-?\d+(?:\.\d+)?)/);
+          if (pairMatch) {
+              var h3 = parseFloat(pairMatch[1]);
+              var s3 = parseFloat(pairMatch[2]);
+              if (h3 >= -2.01 && h3 <= 2.01 && s3 >= -2.01 && s3 <= 2.01) {
+                  var r3 = validate(h3, s3);
+                  if (r3) {
+                      emit('decHit', { tag: 'lz4', m: 'pair-fallback' });
+                      return r3;
+                  }
+              }
+          }
+      }
+
+    } catch (e) {
+      emit('decLog', { m: 'LZ4 decode failed: ' + (e.message || e) });
     }
   }
 
-  for (var di = 0; di < decodedTexts.length; di++) {
-    var r2 = bruteForcePairs(decodedTexts[di].text);
-    if (r2) {
-      emit('decHit', { tag: decodedTexts[di].tag, m: 'brute' });
-      return r2;
-    }
-  }
-
-  emit('decFail', { n: candidates.length, d: decodedTexts.length });
+  emit('decFail', { n: candidates.length, d: 0 });
   return null;
 }
 var LIMITS = [0.5, 2.0, 3.5, 5.0, 6.5, 7.5, 8.5, 10.0, 11.5, 13.0];
@@ -1275,7 +1236,7 @@ zh: {
   var ICON_OK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
   var ICON_ERR = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.1"/></svg>';
   var ICON_X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6 18 18M18 6 6 18"/></svg>';
-  var CURRENT_VER = '1.0.2', CURRENT_BUILD = '1015';
+  var CURRENT_VER = '1.0.3', CURRENT_BUILD = '1985';
   var WEB_URL = 'https://skyheight.pages.dev';
   var SHARE_URL = 'https://skyheight.pages.dev/SkyHeight.apk';
   var FEEDBACK_EMAIL = 'goskynews@outlook.com';
@@ -2153,6 +2114,9 @@ function importAvatar(file) {
   var K_LAST_CHECK = 'sky-height-last-check';
 
   var LOCAL_CHANGELOG = [
+    { version: '1.0.3', build: '1985', date: '2026-11-08',
+      zh: ['版本内部构建优化'],
+      en: ['Internal build improvements'] },
     { version: '1.0.2', build: '1015', date: '2026-11-05',
       zh: ['版本内部构建优化'],
       en: ['Internal build improvements'] },
