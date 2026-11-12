@@ -926,16 +926,22 @@ function getB64Candidates(raw) {
 
   var candidates = getB64Candidates(rawData);
   emit('decCand', { n: candidates.length });
+  var decodable = 0;
 
   for (var i = 0; i < candidates.length; i++) {
+    var stage = 'b64';
     try {
       var binStr = atob(candidates[i]);
       var bytes = new Uint8Array(binStr.length);
       for (var j = 0; j < binStr.length; j++) bytes[j] = binStr.charCodeAt(j);
 
+      stage = 'lz4';
       var decompressedBytes = lz4Decode(bytes);
+      stage = 'utf8';
       var jsonStr = new TextDecoder("utf-8").decode(decompressedBytes);
-      
+      stage = 'json';
+      decodable++;
+
       log('[decoded]', 'lz4-json', '→', jsonStr);
 
       try {
@@ -949,9 +955,21 @@ function getB64Candidates(raw) {
                     emit('decHit', { tag: 'lz4', m: 'json-parse' });
                     return r;
                 }
+                emit('decCalc', { i: i + 1, h: h, s: s });
+            } else {
+                emit('decRange', { i: i + 1, h: h, s: s });
             }
+        } else {
+            var jo = (json && typeof json === 'object') ? json : {};
+            emit('decFields', {
+                i: i + 1,
+                b: jo.body !== undefined ? '@L_yes' : '@L_no',
+                h: jo.height !== undefined ? '@L_yes' : '@L_no',
+                s: jo.scale !== undefined ? '@L_yes' : '@L_no'
+            });
         }
       } catch (e) {
+        emit('decJsonErr', { i: i + 1, n: (e && e.name) || 'Error' });
       }
 
       if (jsonStr.indexOf('"body"') !== -1 || jsonStr.indexOf('"wing"') !== -1) {
@@ -985,12 +1003,17 @@ function getB64Candidates(raw) {
           }
       }
 
+      emit('decNoMatch', {
+          i: i + 1, n: jsonStr.length,
+          f: (jsonStr.indexOf('"body"') !== -1 || jsonStr.indexOf('"wing"') !== -1) ? '@L_yes' : '@L_no'
+      });
+
     } catch (e) {
-      emit('decLog', { m: 'LZ4 decode failed: ' + (e.message || e) });
+      emit('decStage', { i: i + 1, st: '@L_stage_' + stage, n: (e && e.name) || 'Error', m: String((e && e.message) || e).slice(0, 80) });
     }
   }
 
-  emit('decFail', { n: candidates.length, d: 0 });
+  emit('decFail', { n: candidates.length, d: decodable });
   return null;
 }
 var LIMITS = [0.5, 2.0, 3.5, 5.0, 6.5, 7.5, 8.5, 10.0, 11.5, 13.0];
@@ -1055,7 +1078,7 @@ zh: {
   updateIgnoreMsg: '30天后再次提醒',
   secMore: '更多',
   moreVersionTitle: '版本信息', moreFeedbackTitle: '反馈邮件', moreChangelogTitle: '更新日志', moreWebTitle: '访问网页',
-  moreShareTitle: '分享 SkyHeight', moreShareSub: '下载 PunchLog.apk', moreTermsTitle: '服务条款与隐私政策',
+  moreShareTitle: '分享 SkyHeight', moreShareSub: '下载 SkyHeight.apk', moreTermsTitle: '服务条款与隐私政策',
   changelogTitle: '更新日志', changelogEmpty: '暂无更新日志', latestVersion: '最新 {v} ({b})',
   aboutUpToDate: '已是最新版本', aboutCheckFailed: '检查失败，请稍后再试', updateChecking: '正在检查更新…',
   updateSizeUnknown: '未知', updateNoNotes: '无更新说明',
@@ -1083,8 +1106,8 @@ zh: {
   L_langSet: '语言 → {v}', L_themeSet: '主题 → {v}',
   L_nameEdit: '修改昵称（{n} 字）', L_signEdit: '修改个性签名（{n} 字）',
   L_avBuiltin: '选择内置头像 #{i}', L_avShuffle: '随机更换头像 → #{i}', L_avUpload: '上传头像：{kb} KB · {w}×{h}',
-  L_avFail: '头像导入失败：{k}', L_avSave: '长按预览头像 #{i}', L_avSaveDl: '点击下载头像',
-  L_qrFile: '收到图片：{type} · {kb} KB · 来源 {src}', L_qrNotImage: '不是图片文件：{type}', L_qrReadFail: '读取图片文件失败',
+  L_avFail: '头像导入失败：{k} · {type} · 扩展名 {ext} · {kb} KB · {w}×{h}', L_avSave: '长按预览头像 #{i}', L_avSaveDl: '点击下载头像',
+  L_qrFile: '收到图片：{type} · 扩展名 {ext} · {kb} KB（{b} 字节）· 来源 {src}', L_qrNotImage: '不是图片文件：{type} · 扩展名 {ext}', L_qrReadFail: '读取图片文件失败',
   L_qrImage: '图片尺寸 {w}×{h}', L_qrNoDecoder: 'jsQR 解码器未加载',
   L_qrStart: '扫描配置 · {w}×{h} · 缩放 {scales} · 模式 {modes} · 共 {total} 步',
   L_qrStep: '扫描 {c}/{t} · 缩放 {s}× · 模式 {m} · {w}×{h} · 命中 {hit} · {ms}ms', L_qrSkip: '跳过缩放 {s}×（{w}×{h} 超出范围）',
@@ -1092,7 +1115,7 @@ zh: {
   L_qrMiss: '未识别到二维码 · 共尝试 {n} 次 · 耗时 {ms}ms', L_qrStale: '任务已被新图片取代，终止扫描',
   L_decCand: '载荷候选 {n} 个', L_decHit: '载荷解析命中 · {tag} · {m}', L_decFail: '载荷解析失败 · 候选 {n} · 可解码 {d}',
   L_qrStats: '计算结果 · 当前 {c} · 最高 {mx} · 最矮 {mn} · 身高系数 {h} · 体型基准 {s} · 类型 #{ti}',
-  L_qrDone: '测量流程完成 · 总耗时 {ms}ms', L_qrErr: '测量失败 · {k}', L_qrReset: '点击重新测量',
+  L_qrDone: '测量流程完成 · 总耗时 {ms}ms', L_qrErr: '测量失败 · {k} · 耗时 {ms}ms', L_qrReset: '点击重新测量',
   L_detailsOpen: '展开数据细节', L_detailsClose: '收起数据细节',
   L_histPush: '写入历史记录（共 {n} 条）', L_histDel: '删除历史记录 #{i}', L_histClr: '清空历史记录（{n} 条）',
   L_confirmOpen: '打开确认 · {k}（倒计时 {s}s）', L_confirmOk: '已确认 · {k}', L_confirmCancel: '取消确认',
@@ -1109,7 +1132,32 @@ zh: {
   L_termsOpen: '打开服务条款与隐私政策', L_clOpen: '打开更新日志', L_devOpen: '打开调试日志', L_devClear: '日志已清空',
   L_social: '点击社交链接 · {n}', L_pasteIgnored: '面板已打开，忽略粘贴的图片', L_storeFail: '本地存储写入失败 · {k}',
   L_src_picker: '选择文件', L_src_drop: '拖入', L_src_paste: '粘贴', L_src_share: '外部分享',
-  L_cancelled: '已取消'
+  L_cancelled: '已取消',
+  L_yes: '是', L_no: '否',
+  L_stage_b64: 'Base64 解码', L_stage_lz4: 'LZ4 解压', L_stage_utf8: 'UTF-8 解码', L_stage_json: 'JSON 处理',
+  L_qrNoFile: '没有收到文件 · 来源 {src}', L_qrEmpty: '图片文件大小为 0 字节 · {type} · 扩展名 {ext}',
+  L_qrReadErr: '读取图片文件出错 · {n} · {m} · {type} · {kb} KB', L_qrReadAbort: '读取图片文件被中止 · {type} · {kb} KB',
+  L_qrImgFail: '图片解码失败 · {mime} · 数据 {kb} KB', L_qrHeic: '提示：部分浏览器无法解码 HEIC/HEIF，请先转为 PNG 或 JPG 再上传',
+  L_qrCanvasErr: '画布处理异常 · {n} · {m} · 缩放 {s}× · {w}×{h}',
+  L_qrNoStep: '所有缩放均被跳过 · 图片 {w}×{h} 超出 40–4200 像素范围',
+  L_qrPayload: '二维码内容元信息 · 长度 {n} · 含 o= 参数 {o} · 网址形式 {u}',
+  L_qrExc: '未预期的异常 · {n} · {m}',
+  L_decStage: '载荷候选 #{i} 失败 · 阶段 {st} · {n} · {m}', L_decJsonErr: '载荷候选 #{i} 的 JSON 解析失败（继续尝试正则兜底）· {n}',
+  L_decFields: '载荷候选 #{i} 的 JSON 缺少字段 · body {b} · height {h} · scale {s}',
+  L_decRange: '载荷候选 #{i} 数值无效或超出范围 · 身高系数 {h} · 体型基准 {s}',
+  L_decCalc: '载荷候选 #{i} 计算结果无效 · 身高系数 {h} · 体型基准 {s}',
+  L_decNoMatch: '载荷候选 #{i} 未能解析出数据 · 解压后长度 {n} · 含 body/wing 标记 {f}',
+  L_dropEmpty: '拖入内容中没有文件', L_dropMulti: '拖入了 {n} 个文件，仅处理第一个', L_pasteNotImage: '粘贴的文件不是图片 · {type}',
+  L_avFile: '收到头像图片：{type} · 扩展名 {ext} · {kb} KB', L_avNoFile: '头像：没有收到文件',
+  L_avReadErr: '头像文件读取出错 · {n} · {m}', L_avImgFail: '头像图片解码失败 · {mime} · 数据 {kb} KB',
+  L_avExc: '头像处理异常 · {n} · {m}',
+  L_shareIgnored: '忽略无法识别的分享数据 · 来源 {src} · 类型 {t}', L_shareMeta: '分享数据 · {kind} · {mime} · {kb} KB',
+  L_shareHttp: '分享图片请求返回非成功状态 · HTTP {s}', L_shareBlob: '分享数据已读取 · {type} · {kb} KB',
+  L_shareToBlob: '分享图片转换失败（画布导出为空）', L_shareNoUri: '收到分享意图但没有图片 URI',
+  L_wtaEvent: '收到 WTA 分享事件 · {n} 项', L_wtaEmpty: 'WTA 分享事件没有条目', L_wtaSkip: '跳过非图片分享条目 · 类型 {type}',
+  L_wtaRead: '正在读取分享图片 · {b} 字节', L_wtaOk: 'DataURL 读取成功 · {mime} · {kb} KB，进入识别',
+  L_wtaNoData: 'DataURL 读取结果为空', L_wtaConsume: '已消费分享条目', L_wtaFail: '读取分享图片失败 · {n} · {m}',
+  L_wtaPending: '发现后台挂起的分享，主动触发 · {n} 项', L_wtaNone: 'WTA 分享事件处理完毕，没有可用图片'
 },
     en: {
   docTitle: 'Sky Height Meter',
@@ -1162,7 +1210,7 @@ zh: {
   updateIgnoreMsg: 'Remind me in 30 days',
   secMore: 'More',
   moreVersionTitle: 'Version', moreFeedbackTitle: 'Feedback', moreChangelogTitle: 'Changelog', moreWebTitle: 'Visit website',
-  moreShareTitle: 'Share SkyHeight', moreShareSub: 'Download PunchLog.apk', moreTermsTitle: 'Terms & Privacy',
+  moreShareTitle: 'Share SkyHeight', moreShareSub: 'Download SkyHeight.apk', moreTermsTitle: 'Terms & Privacy',
   changelogTitle: 'Changelog', changelogEmpty: 'No changelog yet', latestVersion: 'Latest {v} ({b})',
   aboutUpToDate: 'You are up to date', aboutCheckFailed: 'Check failed, try again later', updateChecking: 'Checking for updates…',
   updateSizeUnknown: 'Unknown', updateNoNotes: 'No release notes',
@@ -1190,8 +1238,8 @@ zh: {
   L_langSet: 'Language → {v}', L_themeSet: 'Theme → {v}',
   L_nameEdit: 'Nickname edited ({n} chars)', L_signEdit: 'Signature edited ({n} chars)',
   L_avBuiltin: 'Picked built-in avatar #{i}', L_avShuffle: 'Shuffled avatar → #{i}', L_avUpload: 'Avatar uploaded: {kb} KB · {w}×{h}',
-  L_avFail: 'Avatar import failed: {k}', L_avSave: 'Long-press preview avatar #{i}', L_avSaveDl: 'Tap download avatar',
-  L_qrFile: 'Image received: {type} · {kb} KB · source {src}', L_qrNotImage: 'Not an image file: {type}', L_qrReadFail: 'Failed to read image file',
+  L_avFail: 'Avatar import failed: {k} · {type} · ext {ext} · {kb} KB · {w}×{h}', L_avSave: 'Long-press preview avatar #{i}', L_avSaveDl: 'Tap download avatar',
+  L_qrFile: 'Image received: {type} · ext {ext} · {kb} KB ({b} bytes) · source {src}', L_qrNotImage: 'Not an image file: {type} · ext {ext}', L_qrReadFail: 'Failed to read image file',
   L_qrImage: 'Image size {w}×{h}', L_qrNoDecoder: 'jsQR decoder not loaded',
   L_qrStart: 'Scan config · {w}×{h} · scales {scales} · modes {modes} · {total} steps',
   L_qrStep: 'Scan {c}/{t} · scale {s}× · mode {m} · {w}×{h} · hit {hit} · {ms}ms', L_qrSkip: 'Skip scale {s}× ({w}×{h} out of range)',
@@ -1199,7 +1247,7 @@ zh: {
   L_qrMiss: 'No QR found · {n} attempts · {ms}ms', L_qrStale: 'Superseded by a new image, scan aborted',
   L_decCand: '{n} payload candidates', L_decHit: 'Payload decoded · {tag} · {m}', L_decFail: 'Payload decode failed · {n} candidates · {d} decodable',
   L_qrStats: 'Result · current {c} · max {mx} · min {mn} · height {h} · scale {s} · type #{ti}',
-  L_qrDone: 'Measurement finished · total {ms}ms', L_qrErr: 'Measurement failed · {k}', L_qrReset: 'Tap measure again',
+  L_qrDone: 'Measurement finished · total {ms}ms', L_qrErr: 'Measurement failed · {k} · {ms}ms', L_qrReset: 'Tap measure again',
   L_detailsOpen: 'Details expanded', L_detailsClose: 'Details collapsed',
   L_histPush: 'History entry saved ({n} total)', L_histDel: 'History entry deleted #{i}', L_histClr: 'History cleared ({n} entries)',
   L_confirmOpen: 'Confirm opened · {k} (countdown {s}s)', L_confirmOk: 'Confirmed · {k}', L_confirmCancel: 'Confirm cancelled',
@@ -1216,7 +1264,32 @@ zh: {
   L_termsOpen: 'Open Terms & Privacy', L_clOpen: 'Open changelog', L_devOpen: 'Open debug log', L_devClear: 'Log cleared',
   L_social: 'Tap social link · {n}', L_pasteIgnored: 'A sheet is open, pasted image ignored', L_storeFail: 'localStorage write failed · {k}',
   L_src_picker: 'File picker', L_src_drop: 'Drag & drop', L_src_paste: 'Paste', L_src_share: 'External share',
-  L_cancelled: 'Cancelled'
+  L_cancelled: 'Cancelled',
+  L_yes: 'yes', L_no: 'no',
+  L_stage_b64: 'Base64 decode', L_stage_lz4: 'LZ4 decompress', L_stage_utf8: 'UTF-8 decode', L_stage_json: 'JSON handling',
+  L_qrNoFile: 'No file received · source {src}', L_qrEmpty: 'Image file is 0 bytes · {type} · ext {ext}',
+  L_qrReadErr: 'Failed to read image file · {n} · {m} · {type} · {kb} KB', L_qrReadAbort: 'Image file read aborted · {type} · {kb} KB',
+  L_qrImgFail: 'Image decode failed · {mime} · data {kb} KB', L_qrHeic: 'Hint: some browsers cannot decode HEIC/HEIF, convert to PNG or JPG before uploading',
+  L_qrCanvasErr: 'Canvas error · {n} · {m} · scale {s}× · {w}×{h}',
+  L_qrNoStep: 'All scales skipped · image {w}×{h} is outside the 40–4200 px range',
+  L_qrPayload: 'QR payload meta · length {n} · has o= param {o} · URL-like {u}',
+  L_qrExc: 'Unexpected exception · {n} · {m}',
+  L_decStage: 'Payload candidate #{i} failed · stage {st} · {n} · {m}', L_decJsonErr: 'Payload candidate #{i}: JSON parse failed (trying regex fallback) · {n}',
+  L_decFields: 'Payload candidate #{i}: JSON missing fields · body {b} · height {h} · scale {s}',
+  L_decRange: 'Payload candidate #{i}: value invalid or out of range · height {h} · scale {s}',
+  L_decCalc: 'Payload candidate #{i}: calculation invalid · height {h} · scale {s}',
+  L_decNoMatch: 'Payload candidate #{i}: no data parsed · decompressed length {n} · has body/wing marker {f}',
+  L_dropEmpty: 'Drop contained no files', L_dropMulti: 'Dropped {n} files, only the first is processed', L_pasteNotImage: 'Pasted file is not an image · {type}',
+  L_avFile: 'Avatar image received: {type} · ext {ext} · {kb} KB', L_avNoFile: 'Avatar: no file received',
+  L_avReadErr: 'Avatar file read error · {n} · {m}', L_avImgFail: 'Avatar image decode failed · {mime} · data {kb} KB',
+  L_avExc: 'Avatar processing error · {n} · {m}',
+  L_shareIgnored: 'Ignored unrecognized share data · source {src} · type {t}', L_shareMeta: 'Share data · {kind} · {mime} · {kb} KB',
+  L_shareHttp: 'Share image request returned non-OK status · HTTP {s}', L_shareBlob: 'Share data read · {type} · {kb} KB',
+  L_shareToBlob: 'Shared image conversion failed (canvas export returned null)', L_shareNoUri: 'Share intent received but no image URI',
+  L_wtaEvent: 'WTA share event received · {n} item(s)', L_wtaEmpty: 'WTA share event has no items', L_wtaSkip: 'Skipped non-image share item · type {type}',
+  L_wtaRead: 'Reading shared image · {b} bytes', L_wtaOk: 'DataURL read OK · {mime} · {kb} KB, entering identification',
+  L_wtaNoData: 'DataURL result is empty', L_wtaConsume: 'Share item consumed', L_wtaFail: 'Failed to read shared image · {n} · {m}',
+  L_wtaPending: 'Found pending share, triggering actively · {n} item(s)', L_wtaNone: 'WTA share event done, no usable image'
 }
   };
   var $ = function (id) { return document.getElementById(id); };
@@ -1598,7 +1671,14 @@ zh: {
   async function scanQR(src, onProgress, isStale) {
   if (typeof jsQR !== 'function') { dlog('err', 'qr', 'qrNoDecoder'); throw KErr('errDecoder'); }
   var t0 = Date.now();
-  var image = await loadImage(src);
+  var image;
+  try { image = await loadImage(src); }
+  catch (e) {
+    var imgMime = dataMime(src);
+    dlog('err', 'qr', 'qrImgFail', { mime: imgMime, kb: Math.round(String(src).length / 1024) });
+    if (/hei[cf]/i.test(imgMime)) dlog('info', 'qr', 'qrHeic');
+    throw e;
+  }
   dlog('info', 'qr', 'qrImage', { w: image.width, h: image.height });
   var canvas = document.createElement('canvas');
   var ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -1619,17 +1699,29 @@ zh: {
       dlog('warn', 'qr', 'qrSkip', { s: sc, w: w, h: h });
       currentStep += modes.length; continue;
     }
-    canvas.width = w; canvas.height = h;
-    ctx.drawImage(image, 0, 0, w, h);
-    var source = ctx.getImageData(0, 0, w, h);
+    var source;
+    try {
+      canvas.width = w; canvas.height = h;
+      ctx.drawImage(image, 0, 0, w, h);
+      source = ctx.getImageData(0, 0, w, h);
+    } catch (e) {
+      dlog('err', 'qr', 'qrCanvasErr', { n: errName(e), m: errMsg(e), s: sc, w: w, h: h });
+      throw e;
+    }
     for (var mi = 0; mi < modes.length; mi++) {
       await tick();
       stale();
       currentStep++; tried++;
       if (onProgress) onProgress(currentStep, totalSteps);
       var stepT0 = Date.now();
-      var p = preprocess(source, modes[mi]);
-      var code = jsQR(p.data, p.width, p.height, { inversionAttempts: 'attemptBoth' });
+      var p, code;
+      try {
+        p = preprocess(source, modes[mi]);
+        code = jsQR(p.data, p.width, p.height, { inversionAttempts: 'attemptBoth' });
+      } catch (e) {
+        dlog('err', 'qr', 'qrExc', { n: errName(e), m: errMsg(e) });
+        throw e;
+      }
       var hit = !!(code && code.data);
       dlog(hit ? 'ok' : 'info', 'qr', 'qrStep', {
         c: currentStep, t: totalSteps, s: sc, m: modes[mi],
@@ -1641,6 +1733,7 @@ zh: {
       }
     }
   }
+  if (tried === 0) dlog('warn', 'qr', 'qrNoStep', { w: image.width, h: image.height });
   dlog('warn', 'qr', 'qrMiss', { n: tried, ms: Date.now() - t0 });
   throw KErr('errNoQr');
 }
@@ -1648,22 +1741,34 @@ var runId = 0;
 function isImageFile(file) {
   return /^image\//.test(file.type || '') || /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(file.name || '');
 }
+/* 日志辅助：只取扩展名 / MIME / 错误类型，不记录文件名 */
+function fileExt(f) { var m = /\.([A-Za-z0-9]{1,8})$/.exec((f && f.name) || ''); return m ? m[1].toLowerCase() : '-'; }
+function errName(e) { return (e && e.name) || 'Error'; }
+function errMsg(e, file) {
+  var m = String((e && e.message) || e || '');
+  if (file && file.name) m = m.split(file.name).join('*');
+  return m.slice(0, 120);
+}
+function dataMime(s) { var m = /^data:([^;,]*)/.exec(typeof s === 'string' ? s : ''); return (m && m[1]) ? m[1] : '-'; }
 function handleFile(file, src) {
-  if (!file) return;
   src = src || 'picker';
-  dlog('action', 'qr', 'qrFile', { type: file.type || '-', kb: Math.round((file.size || 0) / 1024), src: '@L_src_' + src });
+  if (!file) { dlog('warn', 'qr', 'qrNoFile', { src: '@L_src_' + src }); return; }
+  var fType = file.type || '-', fExt = fileExt(file), fKb = Math.round((file.size || 0) / 1024);
+  dlog('action', 'qr', 'qrFile', { type: fType, ext: fExt, kb: fKb, b: file.size || 0, src: '@L_src_' + src });
   if (!isImageFile(file)) {
-    dlog('warn', 'qr', 'qrNotImage', { type: file.type || '-' });
+    dlog('warn', 'qr', 'qrNotImage', { type: fType, ext: fExt });
     setStatus('errNotImage', 'err'); toast(t('errNotImage'), 'err'); return;
   }
+  if (!file.size) dlog('warn', 'qr', 'qrEmpty', { type: fType, ext: fExt });
   var my = ++runId, t0 = Date.now();
   var reader = new FileReader();
   reader.onerror = function () {
-    dlog('err', 'qr', 'qrReadFail');
+    dlog('err', 'qr', 'qrReadErr', { n: errName(reader.error), m: errMsg(reader.error, file), type: fType, kb: fKb });
     if (my === runId) { setStatus('errRead', 'err'); toast(t('errRead'), 'err'); }
   };
+  reader.onabort = function () { dlog('warn', 'qr', 'qrReadAbort', { type: fType, kb: fKb }); };
   reader.onload = async function (ev) {
-    if (my !== runId) return;
+    if (my !== runId) { dlog('info', 'qr', 'qrStale'); return; }
     var url = ev.target.result;
     $('preview').src = url; $('zone').classList.add('has-image');
     $('fab-reset').classList.add('hidden');
@@ -1682,6 +1787,11 @@ function handleFile(file, src) {
       $('progress-wrap').classList.remove('show');
       $('progress-text').classList.remove('show');
       if (my !== runId) return;
+      dlog('info', 'qr', 'qrPayload', {
+        n: String(raw).length,
+        o: /o=/.test(raw) ? '@L_yes' : '@L_no',
+        u: /^https?:\/\//i.test(raw) ? '@L_yes' : '@L_no'
+      });
       var stats = decodeHeightPayload(raw, function (k, p) {
         if (k === 'decLog') { dlogRaw('info', 'qr', p.m); return; }
         dlog(k === 'decFail' ? 'warn' : 'info', 'qr', k, p);
@@ -1700,8 +1810,11 @@ function handleFile(file, src) {
       current = null; renderResult();
       $('fab-reset').classList.add('hidden');
       var key = err && err.key ? err.key : 'errRead';
-      if (!(err && err.key)) dlogRaw('err', 'qr', (err && err.stack) || String(err));
-      dlog('err', 'qr', 'qrErr', { k: '@' + key });
+      if (!(err && err.key)) {
+        dlog('err', 'qr', 'qrExc', { n: errName(err), m: errMsg(err, file) });
+        dlogRaw('err', 'qr', (err && err.stack) || String(err));
+      }
+      dlog('err', 'qr', 'qrErr', { k: '@' + key, ms: Date.now() - t0 });
       setStatus(key, 'err'); toast(t(key), 'err');
     }
   };
@@ -1713,7 +1826,10 @@ zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classL
 zone.addEventListener('dragleave', function (e) { if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag'); });
 zone.addEventListener('drop', function (e) {
   e.preventDefault(); zone.classList.remove('drag');
-  handleFile(e.dataTransfer && e.dataTransfer.files[0], 'drop');
+  var dFiles = (e.dataTransfer && e.dataTransfer.files) || [];
+  if (!dFiles.length) dlog('warn', 'qr', 'dropEmpty');
+  else if (dFiles.length > 1) dlog('info', 'qr', 'dropMulti', { n: dFiles.length });
+  handleFile(dFiles[0], 'drop');
 });
 document.addEventListener('paste', function (e) {
   var items = (e.clipboardData && e.clipboardData.items) || [];
@@ -1722,6 +1838,7 @@ document.addEventListener('paste', function (e) {
       if (openSheetId) { dlog('info', 'qr', 'pasteIgnored'); break; }
       handleFile(items[i].getAsFile(), 'paste'); break;
     }
+    if (items[i].kind === 'file') dlog('warn', 'qr', 'pasteNotImage', { type: items[i].type || '-' });
   }
 });
   
@@ -1837,16 +1954,31 @@ function renderAvatarGrid() {
     renderAvatar();
   }
 function importAvatar(file) {
-  if (!isImageFile(file)) { dlog('warn', 'avatar', 'avFail', { k: '@errNotImage' }); toast(t('errNotImage'), 'err'); return; }
-  if (file.size > 8 * 1024 * 1024) { dlog('warn', 'avatar', 'avFail', { k: '@avatarTooLarge' }); toast(t('avatarTooLarge'), 'err'); return; }
+  var aType = file.type || '-', aExt = fileExt(file), aKb = Math.round((file.size || 0) / 1024);
+  function avFail(level, key, w, h) {
+    dlog(level, 'avatar', 'avFail', { k: '@' + key, type: aType, ext: aExt, kb: aKb, w: w || '-', h: h || '-' });
+  }
+  dlog('action', 'avatar', 'avFile', { type: aType, ext: aExt, kb: aKb });
+  if (!isImageFile(file)) { avFail('warn', 'errNotImage'); toast(t('errNotImage'), 'err'); return; }
+  if (file.size > 8 * 1024 * 1024) { avFail('warn', 'avatarTooLarge'); toast(t('avatarTooLarge'), 'err'); return; }
+  if (!file.size) dlog('warn', 'avatar', 'qrEmpty', { type: aType, ext: aExt });
   var reader = new FileReader();
-  reader.onerror = function () { dlog('err', 'avatar', 'avFail', { k: '@errRead' }); toast(t('errRead'), 'err'); };
+  reader.onerror = function () {
+    dlog('err', 'avatar', 'avReadErr', { n: errName(reader.error), m: errMsg(reader.error, file) });
+    avFail('err', 'errRead'); toast(t('errRead'), 'err');
+  };
   reader.onload = function (ev) {
     var img = new Image();
-    img.onerror = function () { dlog('err', 'avatar', 'avFail', { k: '@avatarInvalid' }); toast(t('avatarInvalid'), 'err'); };
+    img.onerror = function () {
+      dlog('err', 'avatar', 'avImgFail', { mime: dataMime(ev.target.result), kb: Math.round(String(ev.target.result || '').length / 1024) });
+      if (/hei[cf]/i.test(aType) || /hei[cf]/i.test(dataMime(ev.target.result)) || /^hei[cf]$/.test(aExt)) dlog('info', 'avatar', 'qrHeic');
+      avFail('err', 'avatarInvalid'); toast(t('avatarInvalid'), 'err');
+    };
     img.onload = function () {
-      if (img.width < 32 || img.height < 32) { dlog('warn', 'avatar', 'avFail', { k: '@avatarInvalid' }); toast(t('avatarInvalid'), 'err'); return; }
+      if (img.width < 32 || img.height < 32) { avFail('warn', 'avatarInvalid', img.width, img.height); toast(t('avatarInvalid'), 'err'); return; }
 
+      var dataUrl;
+      try {
       var size = 256;
       var canvas = document.createElement('canvas');
       canvas.width = size; canvas.height = size;
@@ -1859,7 +1991,11 @@ function importAvatar(file) {
       var sx = (img.width - s) / 2, sy = (img.height - s) / 2;
       ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
 
-      var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      } catch (e) {
+        dlog('err', 'avatar', 'avExc', { n: errName(e), m: errMsg(e, file) });
+        avFail('err', 'avatarInvalid', img.width, img.height); toast(t('avatarInvalid'), 'err'); return;
+      }
 
       profile.avatar = { type: 'image', value: dataUrl };
       dlog('action', 'avatar', 'avUpload', { kb: Math.round(file.size / 1024), w: img.width, h: img.height });
@@ -1878,7 +2014,7 @@ function importAvatar(file) {
   $('avatar-file').addEventListener('change', function () {
     var f = this.files[0];
     this.value = '';
-    if (f) importAvatar(f);
+    if (f) importAvatar(f); else dlog('warn', 'avatar', 'avNoFile');
   });
   $('btn-cancel-save-avatar').addEventListener('click', function() { closeSheet('sheet-save-avatar', false); });
   $('btn-save-avatar-download').addEventListener('click', function() {
@@ -1927,7 +2063,6 @@ function importAvatar(file) {
   $('e-cancel').addEventListener('click', function () { closeSheet('sheet-edit', false); });
   $('e-save').addEventListener('click', function () {
   var max = getMax(editMode);
-  var val = clampChars($('e-input').value.trim(), max);
     var val = clampChars($('e-input').value.trim(), max);
     if (editMode === 'name') { profile.name = val; }
     else { profile.sign = val; }
@@ -1972,7 +2107,6 @@ function importAvatar(file) {
     if (persist) { lsSet(K_LANG, lang); dlog('action', 'lang', 'langSet', { v: lang }); }
     docEl.setAttribute('data-lang', lang); docEl.lang = lang === 'zh' ? 'zh-CN' : 'en';
     document.title = t('docTitle');
-    translateStatic(); renderStatus(); renderResult(); renderHistory(); renderSettings();
     translateStatic(); renderStatus(); renderResult(); renderHistory(); renderSettings(); renderProfile();
     renderLegal(); renderChangelog(); updateMoreLabels();
   }
@@ -2403,25 +2537,33 @@ function renderLegal() {
     return new File([blob], 'shared.jpg', { type: /^image\//.test(blob.type || '') ? blob.type : 'image/jpeg' });
   }
   function handleSharedImage(x, via) {
-    if (!x) return;
     via = via || 'unknown';
+    if (!x) { dlog('warn', 'share', 'shareIgnored', { src: via, t: String(x) }); return; }
     if (typeof File !== 'undefined' && x instanceof File) { dlog('action', 'share', 'shareIn', { src: via }); handleFile(x, 'share'); return; }
-    if (typeof x !== 'string') return;
+    if (typeof x !== 'string') { dlog('warn', 'share', 'shareIgnored', { src: via, t: Object.prototype.toString.call(x).slice(8, -1) }); return; }
     var isData = x.indexOf('data:image') === 0, isFile = x.indexOf('file://') === 0;
-    if (!isData && !isFile) return;
+    if (!isData && !isFile) { dlog('warn', 'share', 'shareIgnored', { src: via, t: 'string/' + (dataMime(x) !== '-' ? dataMime(x) : 'other') }); return; }
     dlog('action', 'share', 'shareIn', { src: via + (isData ? '/data' : '/file') });
-    fetch(x).then(function (r) { return r.blob(); }).then(function (blob) {
+    dlog('info', 'share', 'shareMeta', { kind: isData ? 'data' : 'file', mime: isData ? dataMime(x) : '-', kb: isData ? Math.round(x.length * 0.75 / 1024) : '-' });
+    fetch(x).then(function (r) {
+      if (!r.ok) dlog('warn', 'share', 'shareHttp', { s: r.status });
+      return r.blob();
+    }).then(function (blob) {
+      dlog('info', 'share', 'shareBlob', { type: blob.type || '-', kb: Math.round(blob.size / 1024) });
       handleFile(sharedBlobToFile(blob), 'share');
     }).catch(function (e) {
-      if (!isFile) { dlog('err', 'share', 'shareFail', { m: (e && e.message) || String(e) }); toast(t('shareReadFail'), 'err'); return; }
+      if (!isFile) { dlog('err', 'share', 'shareFail', { m: errName(e) + ': ' + errMsg(e) }); toast(t('shareReadFail'), 'err'); return; }
       var img = new Image();
       img.onload = function () {
         var canvas = document.createElement('canvas');
         canvas.width = img.width; canvas.height = img.height;
         canvas.getContext('2d').drawImage(img, 0, 0);
-        canvas.toBlob(function (blob) { if (blob) handleFile(sharedBlobToFile(blob), 'share'); }, 'image/jpeg');
+        canvas.toBlob(function (blob) {
+          if (blob) handleFile(sharedBlobToFile(blob), 'share');
+          else dlog('err', 'share', 'shareToBlob');
+        }, 'image/jpeg');
       };
-      img.onerror = function () { dlog('err', 'share', 'shareFail', { m: (e && e.message) || 'file' }); toast(t('shareReadFail'), 'err'); };
+      img.onerror = function () { dlog('err', 'share', 'shareFail', { m: errName(e) + ': ' + errMsg(e) }); toast(t('shareReadFail'), 'err'); };
       img.src = x;
     });
   }
@@ -2438,49 +2580,55 @@ function renderLegal() {
               var reader = new plus.io.FileReader();
               reader.onloadend = function (e) { handleSharedImage(e.target.result, 'plus'); };
               reader.readAsDataURL(file);
-            });
-          });
+            }, function (er) { dlog('err', 'share', 'shareFail', { m: 'entry.file · ' + errName(er) + ': ' + errMsg(er) }); });
+          }, function (er) { dlog('err', 'share', 'shareFail', { m: 'resolveURL · ' + errName(er) + ': ' + errMsg(er) }); });
+        } else {
+          dlog('warn', 'share', 'shareNoUri');
         }
       }
-    } catch (e) { dlog('err', 'share', 'shareFail', { m: (e && e.message) || String(e) }); }
+    } catch (e) { dlog('err', 'share', 'shareFail', { m: errName(e) + ': ' + errMsg(e) }); }
   }
 
   function initWtaShare() {
     window.addEventListener('wta:share', async (e) => {
-      dlogRaw('action', 'share', '收到 WTA 分享事件 / received WTA share event');
-      var items = e.detail.items;
-      if (!items || !items.length) return;
+      var items = e.detail && e.detail.items;
+      dlog('action', 'share', 'wtaEvent', { n: (items && items.length) || 0 });
+      if (!items || !items.length) { dlog('warn', 'share', 'wtaEmpty'); return; }
 
+      var wtaUsed = false;
       for (var i = 0; i < items.length; i++) {
         var item = items[i];
-        if (item.type !== 'image') continue;
+        if (item.type !== 'image') { dlog('info', 'share', 'wtaSkip', { type: item.type || '-' }); continue; }
 
-        dlogRaw('info', 'share', '正在读取分享图片 / reading shared image: ' + item.name + ' (' + item.size + ' bytes)');
+        dlog('info', 'share', 'wtaRead', { b: item.size });
 
         try {
           var dataUrl = await item.readDataUrl();
-          
+
           if (dataUrl) {
-            dlogRaw('ok', 'share', '读取 DataURL 成功 / DataURL read success, entering identification');
+            dlog('ok', 'share', 'wtaOk', { mime: dataMime(dataUrl), kb: Math.round(String(dataUrl).length * 0.75 / 1024) });
             var file = dataURLtoFile(dataUrl, item.name || 'share.jpg');
             handleFile(file, 'share');
-            
+            wtaUsed = true;
+
             if (window.WTAShareInbox && window.WTAShareInbox.consume) {
               window.WTAShareInbox.consume(item.id);
-              dlogRaw('info', 'share', '已消费分享条目 / consumed share item: ' + item.id);
+              dlog('info', 'share', 'wtaConsume');
             }
             break;
           }
+          dlog('warn', 'share', 'wtaNoData');
         } catch (err) {
-          dlogRaw('err', 'share', '读取分享图片失败 / failed to read shared image: ' + (err.message || err));
+          dlog('err', 'share', 'wtaFail', { n: errName(err), m: errMsg(err, item) });
         }
       }
+      if (!wtaUsed) dlog('warn', 'share', 'wtaNone');
     });
 
     if (window.WTAShareInbox && window.WTAShareInbox.peek) {
       var pending = window.WTAShareInbox.peek();
       if (pending && pending.length > 0) {
-        dlogRaw('info', 'share', '发现后台挂起的分享 / found pending share, triggering actively');
+        dlog('info', 'share', 'wtaPending', { n: pending.length });
         window.dispatchEvent(new CustomEvent('wta:share', { detail: { items: pending } }));
       }
     }
@@ -2519,9 +2667,13 @@ function renderLegal() {
       var sharedUrl = urlParams.get('img') || urlParams.get('share');
       if (sharedUrl) {
         dlog('action', 'share', 'shareIn', { src: 'url' });
-        fetch(sharedUrl).then(function (r) { return r.blob(); }).then(function (blob) {
+        fetch(sharedUrl).then(function (r) {
+          if (!r.ok) dlog('warn', 'share', 'shareHttp', { s: r.status });
+          return r.blob();
+        }).then(function (blob) {
+          dlog('info', 'share', 'shareBlob', { type: blob.type || '-', kb: Math.round(blob.size / 1024) });
           handleFile(sharedBlobToFile(blob), 'share');
-        }).catch(function (e) { dlog('err', 'share', 'shareFail', { m: (e && e.message) || String(e) }); });
+        }).catch(function (e) { dlog('err', 'share', 'shareFail', { m: errName(e) + ': ' + errMsg(e) }); });
       }
     }, 1500);
   });
