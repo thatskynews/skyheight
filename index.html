@@ -156,7 +156,8 @@ svg{display:block;flex:none}
 .progress-bar{height:100%;width:100%;border-radius:99px;overflow:hidden;transform:translateX(-100%);transition:transform .4s cubic-bezier(.22,.61,.36,1);will-change:transform}
 .progress-bar>i{display:block;height:100%;width:100%;transform:translateX(100%);transition:transform .4s cubic-bezier(.22,.61,.36,1);will-change:transform}
 [data-theme="dusk"] .progress-bar>i{background:linear-gradient(90deg, #8FD19E, #E8C872, #F08A7E)}
-[data-theme="light"] .progress-bar>i, [data-theme="dark"] .progress-bar>i{background:linear-gradient(90deg, var(--primary), var(--accent))}
+[data-theme="light"] .progress-bar>i{background:linear-gradient(90deg,#8FA6B8,#2E4A63)}
+[data-theme="dark"] .progress-bar>i{background:linear-gradient(90deg, var(--primary), var(--accent))}
 .progress-text{font-size:12.5px;color:var(--on-surface-variant);margin-top:4px;display:none;text-align:center}
 .progress-text.show{display:block;animation:fadeIn .3s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -165,6 +166,7 @@ svg{display:block;flex:none}
 [data-theme="dark"] .hero{background:var(--surface-container)}
 .hero .lab{font-size:13px;letter-spacing:.3px;opacity:.85;color:var(--on-surface-variant)}
 .hero .num{font-size:56px;font-weight:700;line-height:1.1;margin:6px 0 2px;font-variant-numeric:tabular-nums;color:var(--primary)}
+[data-theme="light"] .hero .num{color:#2E4A63}
 [data-theme="dusk"] .hero .num{color:var(--accent)}
 [data-theme="dark"] .hero .num{color:var(--primary)}
 .hero .type{font-size:22px;font-weight:500}
@@ -174,10 +176,12 @@ svg{display:block;flex:none}
 [data-theme="dusk"] .track{background:rgba(255,255,255,.1)}
 .fill{position:absolute;right:0;top:0;bottom:0;border-radius:99px;width:0%;transition:width .5s cubic-bezier(.2,.8,.2,1)}
 [data-theme="dusk"] .fill{background:linear-gradient(90deg, #8FD19E, #E8C872, #F08A7E)}
-[data-theme="light"] .fill, [data-theme="dark"] .fill{background:linear-gradient(90deg, var(--primary), var(--accent))}
+[data-theme="light"] .fill{background:linear-gradient(90deg,#8FA6B8,#2E4A63)}
+[data-theme="dark"] .fill{background:linear-gradient(90deg, var(--primary), var(--accent))}
 .dot{position:absolute;top:50%;left:50%;width:10px;height:22px;border-radius:99px;
   background:var(--primary);box-shadow:0 2px 8px rgba(0,0,0,0.15);
   transform:translate(-50%,-50%);transition:left .5s cubic-bezier(.2,.8,.2,1)}
+[data-theme="light"] .dot{background:#2E4A63}
 [data-theme="dusk"] .dot{background:var(--accent)}
 [data-theme="dark"] .dot{background:var(--primary)}
 .ends{display:flex;justify-content:space-between;margin-top:10px;font-size:12.5px;opacity:.85}
