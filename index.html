@@ -153,9 +153,10 @@ svg{display:block;flex:none}
 .status.ok{color:var(--ok)}.status.err{color:var(--err)}
 .progress-wrap{width:100%;height:4px;border-radius:99px;background:var(--surface-high);overflow:hidden;margin-top:6px;display:none}
 .progress-wrap.show{display:block;animation:fadeIn .3s ease}
-.progress-bar{height:100%;width:0%;border-radius:99px;transition:width .2s ease}
-[data-theme="dusk"] .progress-bar{background:linear-gradient(90deg, #8FD19E, #E8C872, #F08A7E)}
-[data-theme="light"] .progress-bar, [data-theme="dark"] .progress-bar{background:linear-gradient(90deg, var(--primary), var(--accent))}
+.progress-bar{height:100%;width:100%;border-radius:99px;overflow:hidden;transform:translateX(-100%);transition:transform .4s cubic-bezier(.22,.61,.36,1);will-change:transform}
+.progress-bar>i{display:block;height:100%;width:100%;transform:translateX(100%);transition:transform .4s cubic-bezier(.22,.61,.36,1);will-change:transform}
+[data-theme="dusk"] .progress-bar>i{background:linear-gradient(90deg, #8FD19E, #E8C872, #F08A7E)}
+[data-theme="light"] .progress-bar>i, [data-theme="dark"] .progress-bar>i{background:linear-gradient(90deg, var(--primary), var(--accent))}
 .progress-text{font-size:12.5px;color:var(--on-surface-variant);margin-top:4px;display:none;text-align:center}
 .progress-text.show{display:block;animation:fadeIn .3s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -394,183 +395,95 @@ a.btn{text-decoration:none}
 @media (prefers-reduced-motion: reduce){
   .ibtn,.ibtn::after,.ibtn:active,.ibtn:active::after,.more-row::after,.more-row:active::after{transition-duration:.01ms}
 }
+.brand,.pane-input .fab-slot{display:none}
 @media (min-width: 960px) {
-  .floating-top {
-    max-width: 100%;
-    width: 100%;
-    margin: 0;
-    padding: 28px 48px;
-    left: 0;
-    right: 0;
-    transform: none;
-    align-items: center;
-  }
-  
-  .top-avatar, .ibtn {
-    width: 52px;
-    height: 52px;
-    border-radius: 16px;
-  }
-  .top-avatar-inner svg {
-    width: 28px;
-    height: 28px;
-  }
-  .ibtn svg {
-    width: 26px;
-    height: 26px;
-  }
-  .actions {
-    gap: 12px;
-  }
+  :root{--page:var(--bg);--card:var(--surface-container);--card-bd:transparent;--tick:var(--outline);--maxw:1180px;--gut:40px}
+  [data-theme="light"]{--page:#F1F3F5;--card:#FFFFFF;--card-bd:rgba(20,30,40,.08);--tick:#9AA0A6}
+  [data-theme="dusk"]{--card:var(--surface);--card-bd:rgba(255,255,255,.07)}
+  [data-theme="dark"]{--card:var(--surface);--card-bd:rgba(255,255,255,.08)}
+  html,body{background:var(--page)}
 
-  .app {
-    max-width: 1100px;
-    padding-top: 110px;
-    padding-bottom: 90px;
+  .floating-top{
+    height:72px;padding:0 max(var(--gut), calc((100vw - var(--maxw)) / 2 + var(--gut)));
+    background:color-mix(in srgb, var(--page) 80%, transparent);
+    backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);
+    border-bottom:1px solid var(--card-bd);
   }
+  .top-avatar,.ibtn{width:44px;height:44px;box-shadow:none;border:1px solid var(--card-bd);background:var(--card)}
+  .top-avatar{border-radius:50%}
+  .ibtn{border-radius:12px}
+  .top-avatar-inner svg{width:24px;height:24px}
+  .ibtn svg{width:22px;height:22px}
+  .actions{gap:10px}
+  .brand{display:flex;align-items:center;gap:10px;flex:1;margin-left:16px;pointer-events:none;
+    font-size:17px;font-weight:600;letter-spacing:.2px;color:var(--on-surface)}
+  .brand-mark{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--primary);color:var(--on-primary)}
+  [data-theme="dusk"] .brand-mark{background:var(--accent);color:#1A201C}
+  .brand-mark svg{width:18px;height:18px}
 
-  .lead {
-    text-align: center;
-    font-size: 15px;
-    margin-bottom: 28px;
-  }
+  .app{max-width:var(--maxw);padding:104px var(--gut) 56px;display:grid;grid-template-columns:400px minmax(0,1fr);
+    column-gap:28px;row-gap:0;align-items:start}
+  .pane-input{position:sticky;top:100px;display:flex;flex-direction:column}
+  .lead{text-align:left;font-size:14.5px;line-height:1.7;margin:2px 4px 18px}
+  .zone{min-height:300px;border-radius:24px;background:var(--card);padding:28px}
+  .zone .t1{font-size:17px;margin-top:6px}
+  .zone .t2{font-size:13.5px}
+  .zone.has-image{min-height:0;padding:14px;border:1.5px solid var(--card-bd)}
+  .preview{max-height:380px;border-radius:14px}
+  .status{margin-top:14px;justify-content:center}
+  .fab{position:static;transform:none;left:auto;bottom:auto;width:100%;max-width:none;min-height:48px;margin-top:14px;
+    border-radius:14px;box-shadow:none;background:var(--primary);backdrop-filter:none;-webkit-backdrop-filter:none}
+  .fab:active{transform:scale(.98)}
+  .fab.hidden{display:none}
 
-  .zone {
-    min-height: 280px;
-    border-radius: 28px;
-  }
-  
-  .preview {
-    max-height: 380px;
-    border-radius: 20px;
-  }
+  .result{margin-top:0;display:flex;flex-direction:column;gap:16px}
+  .hero,.cell,.more{background:var(--card);border:1px solid var(--card-bd)}
+  .hero{display:block;padding:34px 40px 30px;border-radius:24px}
+  .hero .lab{font-size:14px;margin:0}
+  .hero .num{font-size:96px;letter-spacing:-2px;margin:10px 0 4px}
+  .hero .type{font-size:24px}
+  .hero .desc{font-size:15px;margin-top:6px}
+  .meter{margin-top:34px}
+  .track{height:14px}
+  .track::after{content:"";position:absolute;left:0;right:0;top:calc(100% + 10px);height:7px;opacity:.55;
+    border-right:1px solid var(--tick);
+    background:repeating-linear-gradient(90deg,var(--tick) 0 1px,transparent 1px 10%)}
+  .dot{width:16px;height:34px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  .ends{margin-top:26px;font-size:13px}
+  .grid{gap:16px;margin-top:0}
+  .cell{display:block;padding:22px 26px;border-radius:20px}
+  .cell .lab{display:flex;align-items:center;gap:8px;font-size:14px}
+  .cell .lab::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  .cell+.cell .lab::before{background:var(--err)}
+  .cell .val{font-size:40px;margin-top:8px;font-weight:600}
+  .more{margin-top:0;border-radius:20px}
+  .more-head{padding:18px 28px;font-size:15.5px}
+  .more-inner{padding:0 28px}
+  .more.open .more-inner{padding:0 28px 24px}
+  .social-links{grid-column:1 / -1;margin:36px 0 0;opacity:.75}
 
-  .result {
-    margin-top: 24px;
-  }
-
-  .hero {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 0 48px;
-    padding: 36px 48px;
-    border-radius: 28px;
-  }
-
-  .hero .lab {
-    grid-column: 1 / -1;
-    margin-bottom: 8px;
-  }
-
-  .hero .num {
-    grid-column: 1;
-    font-size: 76px;
-  }
-
-  .hero .type, .hero .desc {
-    grid-column: 1;
-  }
-
-  .hero .meter {
-    grid-column: 2;
-    grid-row: 2 / 5;
-    margin-top: 0;
-  }
-
-  .track {
-    height: 12px;
-  }
-  
-  .dot {
-    width: 16px;
-    height: 32px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  }
-
-  .grid {
-    gap: 24px;
-    margin-top: 24px;
-  }
-
-  .cell {
-    padding: 24px 32px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-radius: 20px;
-  }
-
-  .cell .lab {
-    font-size: 15px;
-  }
-
-  .cell .val {
-    font-size: 36px;
-    margin-top: 0;
-  }
-
-  .more {
-    margin-top: 24px;
-    border-radius: 20px;
-  }
-
-  .more-head {
-    padding: 20px 32px;
-    font-size: 16px;
-  }
-
-  .more-inner {
-    padding: 0 32px;
-  }
-  .more.open .more-inner {
-    padding: 0 32px 24px;
-  }
-
-  .social-links {
-    margin: 32px 0 100;
-  }
-
-  .sheet {
-    max-width: 800px;
-    border-radius: 32px;
-  }
-
-  .fab {
-    position: fixed;
-    left: 50%;
-    bottom: 30px;
-    transform: translateX(-50%);
-    margin: 0;
-    width: 280px;
-    height: 56px;
-    border-radius: 16px;
-    box-shadow: none;
-    z-index: 30;
-  }
-  
-  .fab:active {
-    transform: translateX(-50%) scale(.96);
-  }
-
-  .fab.hidden {
-    display: none;
-  }
+  .mask{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  .sheet{max-width:640px;bottom:32px;border-radius:28px;border:1px solid var(--card-bd);
+    transform:translateY(calc(100% + 64px));box-shadow:0 24px 64px rgba(0,0,0,.35)}
+  .sheet.show{transform:translateY(0)}
+  .sheet-top{padding:14px 28px 4px}
+  .sheet-body{padding:4px 28px 20px}
+  .sheet-foot{padding:12px 28px 24px}
 }
-
+@media (min-width: 960px) and (hover: hover) {
+  .ibtn:hover::after{opacity:1}
+  .top-avatar:hover{background:var(--surface-high)}
+  .zone:hover{border-color:var(--primary);background:color-mix(in srgb, var(--card) 92%, var(--primary))}
+  [data-theme="dusk"] .zone:hover{border-color:var(--accent)}
+  .more-head:hover{background:color-mix(in srgb, var(--card) 94%, var(--on-surface))}
+  .social-links a:hover{opacity:.6}
+  .fab:hover{filter:brightness(1.08)}
+}
 @media (min-width: 1600px) {
-  .app {
-    max-width: 1200px;
-  }
-  .floating-top {
-    padding: 32px 64px;
-  }
-  .hero {
-    padding: 40px 56px;
-  }
-  .hero .num {
-    font-size: 88px;
-  }
+  :root{--maxw:1320px}
+  .app{grid-template-columns:440px minmax(0,1fr);column-gap:36px}
+  .hero{padding:40px 48px 34px}
+  .hero .num{font-size:112px}
 }
 </style>
 </head>
@@ -581,6 +494,7 @@ a.btn{text-decoration:none}
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2.2c-3.6 0-7.8 1.8-7.8 4.6V21h15.6v-2.2c0-2.8-4.2-4.6-7.8-4.6z"/></svg>
     </span>
   </button>
+  <div class="brand" aria-hidden="true"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg></span><span data-i="docTitle"></span></div>
   <div class="actions">
     <button class="ibtn" id="btn-help" data-ia="ariaHelp" type="button">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.2-2.5 3.9M12 17.2v.1"/></svg>
@@ -594,6 +508,7 @@ a.btn{text-decoration:none}
   </div>
 </div>
 <div class="app">
+  <div class="pane-input">
   <p class="lead" data-i="lead"></p>
   <label class="zone" id="zone">
     <input type="file" id="file" accept="image/*">
@@ -603,8 +518,13 @@ a.btn{text-decoration:none}
     <img class="preview" id="preview" alt="">
   </label>
   <div class="status" id="status"></div>
-  <div class="progress-wrap" id="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+  <div class="progress-wrap" id="progress-wrap"><div class="progress-bar" id="progress-bar"><i></i></div></div>
   <div class="progress-text" id="progress-text"></div>
+  <button class="fab hidden" id="fab-reset" type="button">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.5-5.8L20 8.5"/><path d="M20 3.5v5h-5"/></svg>
+  <span data-i="again"></span>
+</button>
+  </div>
   <section class="result" id="result" aria-live="polite">
     <div class="hero">
       <div class="lab" data-i="labCurrent"></div>
@@ -658,10 +578,6 @@ a.btn{text-decoration:none}
   </a>
 </div>
 </div>
-<button class="fab hidden" id="fab-reset" type="button">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.5-5.8L20 8.5"/><path d="M20 3.5v5h-5"/></svg>
-  <span data-i="again"></span>
-</button>
 <div class="mask" id="mask"></div>
 <div class="sheet" id="sheet-help" role="dialog" aria-modal="true">
   <div class="sheet-top" data-grab><i></i><h2 data-i="helpTitle"></h2></div>
@@ -871,7 +787,7 @@ a.btn{text-decoration:none}
     var current  = 7.6 - (8.3 * scale) - (3 * height);
     var tallest  = 7.6 - (8.3 * scale) - (3 * 2.000);
     var shortest = 7.6 - (8.3 * scale) - (3 * -2.000);
-    if (current < 0 || current > 15 || tallest < 0 || shortest > 15) return null;
+    if (current < -2 || current > 15 || tallest < -2 || shortest > 15) return null;
     return { current: current, rawHeight: height, rawScale: scale, tallest: tallest, shortest: shortest };
   }
 function decodeHeightPayload(rawData, onLog) {
@@ -1018,6 +934,7 @@ function getB64Candidates(raw) {
 }
 var LIMITS = [0.5, 2.0, 3.5, 5.0, 6.5, 7.5, 8.5, 10.0, 11.5, 13.0];
   function typeIndex(c) {
+    if (c < 0) return 0;
     for (var i = 0; i < LIMITS.length; i++) if (c <= LIMITS[i]) return i;
     return LIMITS.length;
   }
@@ -1055,15 +972,16 @@ zh: {
   thLight: '浅色', thDusk: '暮色', thDark: '暗色',
   defaultName: '玩家', defaultSign: '点击添加你的个性签名',
   editName: '编辑昵称', editSign: '编辑个性签名',
-  namePlaceholder: '输入昵称（最多6字）', signPlaceholder: '输入个性签名（最多24字）',
+  namePlaceholder: '输入昵称', signPlaceholder: '输入个性签名',
   shuffleAvatar: '换一换头像',
   avatarUpdated: '头像已更新', avatarInvalid: '头像图片无效', avatarTooLarge: '图片太大了 请换一张',
   nameUpdated: '昵称已更新', signUpdated: '签名已更新',
   chooseAvatar: '选择头像', localUpload: '从相册上传', builtinAvatars: '内置头像',
-  saveAvatar: '保存头像', longPressHint: '点击下方按钮即可下载头像',
+  saveAvatar: '保存头像', longPressHint: '轻点保存即可下载头像',
   progressText: '正在检查 {c} / {t} 个运行模式',
   nearMax: '距离你的最高上限还差 {n}', nearMin: '距离你的最矮下限还差 {n}',
-  atMax: '你正处于账号的最高上限！', atMin: '你正处于账号的最矮下限！',
+  atMax: '你正处于账号的最高上限！差值 {n}', atMin: '你正处于账号的最矮下限！差值 {n}',
+  soonMax: '你即将处于账号的最高上限！还差 {n}', soonMin: '你即将处于账号的最矮下限！还差 {n}',
   ty0: '已达最高', ty1: '极高', ty2: '接近最高', ty3: '偏高', ty4: '略高于平均', ty5: '中等',
   ty6: '略低于平均', ty7: '偏矮', ty8: '接近最矮', ty9: '极矮', ty10: '已达最矮',
   netease: '网易版', international: '国际版',
@@ -1160,9 +1078,9 @@ zh: {
   L_wtaPending: '发现后台挂起的分享，主动触发 · {n} 项', L_wtaNone: 'WTA 分享事件处理完毕，没有可用图片'
 },
     en: {
-  docTitle: 'Sky Height Meter',
+  docTitle: 'SkyHeight',
   ariaHelp: 'How to get the QR code', ariaHistory: 'History', ariaSettings: 'Settings', ariaDelete: 'Delete this entry', ariaAvatar: 'Change avatar',
-  lead: 'Please upload a screenshot of your in-game Outfit QR code, Sky Height Meter will locally read and process your height and its limits.',
+  lead: 'Please upload a screenshot of your in-game Outfit QR code, SkyHeight will locally read and process your height and its limits.',
   zoneTitle: 'Add Outfit QR screenshot', zoneHint: 'Import, select, drag or paste',
   statusNone: 'No Outfit QR image yet', statusReading: 'Searching for QR code...', statusOk: 'Processed Height calculated',
   toastDone: 'Measurement complete',
@@ -1187,7 +1105,7 @@ zh: {
   thLight: 'Light', thDusk: 'Dusk', thDark: 'Dark',
   defaultName: 'Player', defaultSign: 'Tap to add your signature',
   editName: 'Edit nickname', editSign: 'Edit signature',
-  namePlaceholder: 'Nickname (max 6 chars)', signPlaceholder: 'Signature (max 24 chars)',
+  namePlaceholder: 'Nickname', signPlaceholder: 'Signature',
   shuffleAvatar: 'Shuffle avatar',
   avatarUpdated: 'Avatar updated', avatarInvalid: 'Invalid avatar image', avatarTooLarge: 'Image too large, try another',
   nameUpdated: 'Nickname updated', signUpdated: 'Signature updated',
@@ -1195,14 +1113,15 @@ zh: {
   saveAvatar: 'Save Avatar', longPressHint: 'Tap the button below to download the avatar',
   progressText: 'Checking pattern {c} / {t}',
   nearMax: '{n} away from your tallest limit', nearMin: '{n} away from your shortest limit',
-  atMax: 'You are at your tallest limit!', atMin: 'You are at your shortest limit!',
+  atMax: 'You are at your tallest limit! Difference {n}', atMin: 'You are at your shortest limit! Difference {n}',
+  soonMax: 'You are about to reach your tallest limit! {n} to go', soonMin: 'You are about to reach your shortest limit! {n} to go',
   ty0: 'At max height', ty1: 'Tallest', ty2: 'Near tallest', ty3: 'Tall', ty4: 'Above average', ty5: 'Average',
   ty6: 'Below average', ty7: 'Short', ty8: 'Near shortest', ty9: 'Shortest', ty10: 'At min height',
   netease: 'NetEase', international: 'International',
   pathNetease: 'Settings → More → Offline event Outfit QR code',
   pathIntl: 'Settings → Account → Account Info → Outfit QR Code',
   
-  updateTitle: 'Sky Height Meter | New Update',
+  updateTitle: 'SkyHeight | New Update',
   updateCurrent: 'Current: ',
   updateLatest: 'Latest: ',
   updateLater: 'Later',
@@ -1220,7 +1139,7 @@ zh: {
   shareCopy: 'Copy', shareCopied: 'Download link copied',
   webSheetTitle: 'Visit website', webTip: 'Go to the SkyHeight Officialwebsite? Tap Copy below to copy the link and open it.', webCopy: 'Copy & open',
   feedbackSheetTitle: 'Feedback', feedbackTip: 'Send us a feedback email? Tap Copy below to copy our address. If possible, tap the version row 5 times first to open the debug log and include it in your email.', feedbackCopy: 'Copy & open',
-  mailSubject: 'Sky Height Meter feedback v{v} ({b})',
+  mailSubject: 'SkyHeight feedback v{v} ({b})',
   devLogTitle: 'Debug Log', devVersion: 'Version', devBoot: 'Booted', devUptime: 'Uptime',
   devTheme: 'Theme', devLang: 'Language', devViewport: 'Viewport', devDPR: 'DPR', devScreen: 'Screen',
   devOnline: 'Network', devPlatform: 'Platform', devUA: 'UA', devStorage: 'localStorage', devLogCount: 'Entries',
@@ -1309,7 +1228,7 @@ zh: {
   var ICON_OK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
   var ICON_ERR = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.1"/></svg>';
   var ICON_X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6 18 18M18 6 6 18"/></svg>';
-  var CURRENT_VER = '1.0.3', CURRENT_BUILD = '1985';
+  var CURRENT_VER = '1.0.3', CURRENT_BUILD = '2574';
   var WEB_URL = 'https://skyheight.pages.dev';
   var SHARE_URL = 'https://skyheight.pages.dev/SkyHeight.apk';
   var FEEDBACK_EMAIL = 'goskynews@outlook.com';
@@ -1549,9 +1468,25 @@ zh: {
   });
   function getHistory() { try { return JSON.parse(localStorage.getItem(K_HIST)) || []; } catch (e) { return []; } }
   function setHistory(h) { lsSet(K_HIST, JSON.stringify(h)); }
+  function limitInfo(s) {
+    var dMax = s.current - s.tallest, dMin = s.shortest - s.current;
+    var nearTall = dMax <= dMin;
+    var n = Math.abs(nearTall ? dMax : dMin).toFixed(3);
+    var d = Math.abs(nearTall ? dMax : dMin);
+    return { nearTall: nearTall, n: n, atLimit: Math.round(d * 1000) <= 100, d: d };
+  }
+  function tierKey(ti) { return 'ty' + ti; }
+  function levelKey(s) {
+    var li = limitInfo(s);
+    if (li.atLimit) return li.nearTall ? 'ty0' : 'ty10';
+    var ti = typeIndex(s.current);
+    if (ti === 0 && li.d > 0.5) ti = 1;
+    if (ti === 10 && li.d > 0.5) ti = 9;
+    return tierKey(ti);
+  }
   function pushHistory(s) {
     var h = getHistory();
-    h.unshift({ height: s.current.toFixed(3), ti: typeIndex(s.current), date: new Date().toISOString() });
+    h.unshift({ height: s.current.toFixed(3), ti: typeIndex(s.current), lk: levelKey(s), date: new Date().toISOString() });
     if (h.length > HMAX) h.length = HMAX;
     setHistory(h);
     dlog('info', 'history', 'histPush', { n: h.length });
@@ -1566,7 +1501,7 @@ zh: {
     $('hist-empty').hidden = h.length > 0;
     $('hist-foot').hidden = h.length === 0;
     h.forEach(function (it, i) {
-      var typeText = typeof it.ti === 'number' ? t('ty' + it.ti) : (it.type || '');
+      var typeText = typeof it.ti === 'number' ? t(it.lk || tierKey(it.ti)) : (it.type || '');
       var row = document.createElement('div');
       row.className = 'hrow';
       row.innerHTML = '<div><div class="a">' + esc(it.height) + '<span>' + esc(typeText) + '</span></div><div class="b">' + esc(fmtDate(it.date)) + '</div></div>' +
@@ -1598,7 +1533,7 @@ zh: {
     el.innerHTML = '<span>' + esc(t(st.key)) + '</span>';
     $('progress-wrap').classList.remove('show');
     $('progress-text').classList.remove('show');
-    $('progress-bar').style.width = '0%';
+    setProgress(0, true);
   }
   function sgn(n) { return (n >= 0 ? '+' : '') + n.toFixed(3); }
   function renderResult() {
@@ -1616,12 +1551,15 @@ zh: {
       return;
     }
     var ti = typeIndex(s.current);
-    var n = Math.abs(s.current - (ti <= 5 ? s.tallest : s.shortest)).toFixed(3);
+    var li = limitInfo(s), nearTall = li.nearTall, n = li.n;
     $('v-current').textContent = s.current.toFixed(3);
     $('v-max').textContent = s.tallest.toFixed(3);
     $('v-min').textContent = s.shortest.toFixed(3);
-    $('v-type').textContent = t('ty' + ti);
-    $('v-desc').textContent = ti === 0 ? t('atMax') : ti === 10 ? t('atMin') : (ti <= 5 ? t('nearMax', { n: n }) : t('nearMin', { n: n }));
+    $('v-type').textContent = t(levelKey(s));
+    var soon = li.d <= 0.5;
+    $('v-desc').textContent = li.atLimit ? t(nearTall ? 'atMax' : 'atMin', { n: n })
+      : soon ? t(nearTall ? 'soonMax' : 'soonMin', { n: n })
+      : t(nearTall ? 'nearMax' : 'nearMin', { n: n });
     $('v-rh').textContent = sgn(s.rawHeight); $('v-rs').textContent = sgn(s.rawScale);
     $('v-range').textContent = s.tallest.toFixed(3) + ' (Max) → ' + s.shortest.toFixed(3) + ' (Min)';
     var pos = Math.max(0, Math.min(1, (s.current - s.tallest) / (s.shortest - s.tallest))) * 100;
@@ -1667,6 +1605,14 @@ zh: {
       im.onerror = function () { rej(KErr('errRead')); };
       im.src = src;
     });
+  }
+  function setProgress(p, instant) {
+    var bar = $('progress-bar'), inner = bar.firstElementChild;
+    var off = (100 - Math.max(0, Math.min(100, p))).toFixed(2);
+    if (instant) { bar.style.transition = inner.style.transition = 'none'; }
+    bar.style.transform = 'translateX(-' + off + '%)';
+    inner.style.transform = 'translateX(' + off + '%)';
+    if (instant) { void bar.offsetWidth; bar.style.transition = inner.style.transition = ''; }
   }
   async function scanQR(src, onProgress, isStale) {
   if (typeof jsQR !== 'function') { dlog('err', 'qr', 'qrNoDecoder'); throw KErr('errDecoder'); }
@@ -1741,7 +1687,6 @@ var runId = 0;
 function isImageFile(file) {
   return /^image\//.test(file.type || '') || /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(file.name || '');
 }
-/* 日志辅助：只取扩展名 / MIME / 错误类型，不记录文件名 */
 function fileExt(f) { var m = /\.([A-Za-z0-9]{1,8})$/.exec((f && f.name) || ''); return m ? m[1].toLowerCase() : '-'; }
 function errName(e) { return (e && e.name) || 'Error'; }
 function errMsg(e, file) {
@@ -1780,7 +1725,7 @@ function handleFile(file, src) {
     try {
       var raw = await scanQR(url, function (current, total) {
         if (my !== runId) return;
-        $('progress-bar').style.width = (current / total * 100).toFixed(1) + '%';
+        setProgress(current / total * 100);
         $('progress-text').textContent = t('progressText', { c: current, t: total });
       }, function () { return my !== runId; });
       clearTimeout(progressTimer);
@@ -2248,6 +2193,9 @@ function importAvatar(file) {
   var K_LAST_CHECK = 'sky-height-last-check';
 
   var LOCAL_CHANGELOG = [
+    { version: '1.0.3', build: '2574', date: '2026-11-14',
+      zh: ['版本内部构建优化'],
+      en: ['Internal build improvements'] },
     { version: '1.0.3', build: '1985', date: '2026-11-08',
       zh: ['版本内部构建优化'],
       en: ['Internal build improvements'] },
@@ -2333,7 +2281,7 @@ function renderLegal() {
 '</div>';
   }
   box.innerHTML = html;
-  var upd = $('legal-updated'); if (upd) upd.textContent = t('legalUpdated', { d: '2026-11-04' });
+  var upd = $('legal-updated'); if (upd) upd.textContent = t('legalUpdated', { d: '2026-11-14' });
 }
 
   async function copyText(text) {
