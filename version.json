@@ -1,7 +1,7 @@
 {
   "version": "1.0.3",
   "build": "2574",
-  "size": "14.81MB",
+  "size": "14.12MB",
   "changelog": "- 版本内部构建优化/Internal build optimization\n- 优化外观二维码检查/Optimized appearance QR code inspection",
   "url": "https://skyheight.pages.dev/SkyHeight.apk"
 }
