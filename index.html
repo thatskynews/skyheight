@@ -245,6 +245,9 @@ svg{display:block;flex:none}
 .hrow .a span{color:var(--primary);font-size:13px;margin-left:8px}
 [data-theme="dusk"] .hrow .a span{color:var(--accent)}
 .hrow .b{font-size:12.5px;color:var(--on-surface-variant);margin-top:2px}
+.conf-line{font-weight:600}
+.hrow.replay{cursor:pointer}
+.hrow.replay:active{opacity:.7}
 .empty{text-align:center;color:var(--on-surface-variant);font-size:14px;padding:36px 0}
 .btn{width:100%;min-height:48px;padding:0 24px;border-radius:var(--radius-btn);font-weight:500;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;transition:filter .15s,transform .1s}
 .btn:active{filter:brightness(.94);transform:scale(.99)}
@@ -654,6 +657,7 @@ a.btn{text-decoration:none}
           <p data-ih="expHeight"></p>
           <p data-ih="expScale"></p>
           <p data-ih="expRange"></p>
+          <p id="v-conf" class="conf-line" hidden></p>
           <p data-ih="tipFooter"></p>
         </div>
       </div>
@@ -891,155 +895,457 @@ a.btn{text-decoration:none}
     if (current < -2 || current > 15 || tallest < -2 || shortest > 15) return null;
     return { current: current, rawHeight: height, rawScale: scale, tallest: tallest, shortest: shortest };
   }
-function decodeHeightPayload(rawData, onLog) {
-  if (!rawData || typeof rawData !== 'string') return null;
+/* ================= 载荷解析（多格式 / 多版本兼容） =================
+ * 链路：二维码文本 → 候选提取(URL 参数/路径/整串/JSON/HEX) → 字节解码(plain/LZ4 块/LZ4+长度头/LZ4 帧/gzip/zlib/deflate)
+ *       → 结构解析(严格顶层扫描，保留重复键 → 宽松数值对兜底) → 字段别名解析(完整键/紧凑键/嵌套/启发式) → 校验
+ * 已知格式：
+ *   verbose(国服/网易)：{"body":{..},"height":1.97,"scale":-0.046,"voice":6,...}
+ *   compact(国际服)  ：{"b":[..],"h":[..发型..],...,"h":1.80,"s":-0.005,"v":6,"a":0,"e":59987,"r":0}   ← "h" 重复：数组=发型，数字=身高
+ */
+var PAYLOAD_MAX = 262144;
+var PAYLOAD_KNOWN_VER = 6;
+var H_KEYS = ['height', 'h', 'hei', 'hgt', 'heightvalue', 'bodyheight', 'body_height'];
+var S_KEYS = ['scale', 's', 'sc', 'scalevalue', 'bodyscale', 'body_scale'];
+var V_KEYS = ['voice', 'v', 'ver', 'version'];
 
-  function emit(k, p) { if (onLog) { try { onLog(k, p); } catch (e) {} } }
-  var log = function(){
-    var m = Array.prototype.join.call(arguments, ' ');
-    emit('decLog', { m: m });
-  };
-
-  function validate(h, s) {
-    if (!isFinite(h) || !isFinite(s)) return null;
-    if (h < -2.01 || h > 2.01) return null;
-    if (s < -2.01 || s > 2.01) return null;
-    return calculateStats(h, s);
+function lz4Block(input, maxOut) {
+  var out = new Uint8Array(maxOut || PAYLOAD_MAX), o = 0, i = 0, n = input.length;
+  while (i < n) {
+    var token = input[i++], lit = token >> 4, l;
+    if (lit === 15) { do { if (i >= n) return null; l = input[i++]; lit += l; } while (l === 255); }
+    if (i + lit > n || o + lit > out.length) return null;
+    for (var j = 0; j < lit; j++) out[o++] = input[i++];
+    if (i >= n) break;
+    if (i + 2 > n) return null;
+    var off = input[i] | (input[i + 1] << 8); i += 2;
+    if (off === 0 || off > o) return null;
+    var ml = (token & 15) + 4;
+    if ((token & 15) === 15) { do { if (i >= n) return null; l = input[i++]; ml += l; } while (l === 255); }
+    if (o + ml > out.length) return null;
+    var s = o - off;
+    for (var k = 0; k < ml; k++) out[o++] = out[s + k];
   }
-
-  function lz4Decode(input) {
-    var output = []; var i = 0; var len = input.length;
-    while (i < len) {
-      var token = input[i++]; var literalLength = token >> 4;
-      if (literalLength === 15) { var l; do { l = input[i++]; literalLength += l; } while (l === 255); }
-      for (var j = 0; j < literalLength; j++) output.push(input[i++]);
-      if (i >= len) break;
-      var offset = input[i++] | (input[i++] << 8); if (offset === 0) break;
-      var matchLength = (token & 0x0F) + 4;
-      if (matchLength === 19) { var l; do { l = input[i++]; matchLength += l; } while (l === 255); }
-      var start = output.length - offset;
-      for (var j = 0; j < matchLength; j++) output.push(output[start + j]);
+  return out.subarray(0, o);
+}
+function concatBytes(parts, total) {
+  var r = new Uint8Array(total), p = 0;
+  for (var i = 0; i < parts.length; i++) { r.set(parts[i], p); p += parts[i].length; }
+  return r;
+}
+function lz4Frame(b) {
+  if (b.length < 7 || b[0] !== 0x04 || b[1] !== 0x22 || b[2] !== 0x4D || b[3] !== 0x18) return null;
+  var flg = b[4], i = 6, parts = [], total = 0;
+  if (flg & 0x08) i += 8;
+  if (flg & 0x01) i += 4;
+  i += 1;
+  while (i + 4 <= b.length) {
+    var sz = (b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)) >>> 0; i += 4;
+    if (sz === 0) break;
+    var stored = (sz & 0x80000000) !== 0; sz = sz & 0x7fffffff;
+    if (i + sz > b.length) return null;
+    var blk = b.subarray(i, i + sz); i += sz;
+    if (flg & 0x10) i += 4;
+    var dec = stored ? blk : lz4Block(blk, PAYLOAD_MAX);
+    if (!dec) return null;
+    total += dec.length; if (total > PAYLOAD_MAX) return null;
+    parts.push(dec);
+  }
+  return total ? concatBytes(parts, total) : null;
+}
+async function inflateBytes(bytes, fmt) {
+  if (typeof DecompressionStream !== 'function') return null;
+  try {
+    var ds = new DecompressionStream(fmt);
+    var w = ds.writable.getWriter();
+    w.write(bytes).catch(function () {}); w.close().catch(function () {});
+    var rd = ds.readable.getReader(), parts = [], total = 0;
+    for (;;) {
+      var r = await rd.read();
+      if (r.done) break;
+      total += r.value.length;
+      if (total > PAYLOAD_MAX) { try { rd.cancel(); } catch (e) {} return null; }
+      parts.push(r.value);
     }
-    return new Uint8Array(output);
+    return total ? concatBytes(parts, total) : null;
+  } catch (e) { return null; }
+}
+function printableRatio(u8) {
+  var n = Math.min(u8.length, 512), ok = 0;
+  for (var i = 0; i < n; i++) { var c = u8[i]; if (c === 9 || c === 10 || c === 13 || (c >= 32 && c < 127) || c >= 128) ok++; }
+  return n ? ok / n : 0;
+}
+async function byteVariants(bytes) {
+  var out = [];
+  function add(d, u8) {
+    if (!u8 || !u8.length) return;
+    var s; try { s = new TextDecoder('utf-8').decode(u8); } catch (e) { return; }
+    if (s.charAt(0) === '﻿') s = s.slice(1);
+    out.push({ d: d, text: s });
   }
+  if (printableRatio(bytes) >= 0.95) add('plain', bytes);
+  add('lz4', lz4Block(bytes, PAYLOAD_MAX));
+  if (bytes.length > 6) {
+    var le = (bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24)) >>> 0;
+    var be = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+    if (le > 0 && le <= PAYLOAD_MAX) add('lz4+len', lz4Block(bytes.subarray(4), PAYLOAD_MAX));
+    if (be > 0 && be <= PAYLOAD_MAX && be !== le) add('lz4+lenBE', lz4Block(bytes.subarray(4), PAYLOAD_MAX));
+  }
+  add('lz4frame', lz4Frame(bytes));
+  if (bytes.length > 2) {
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) add('gzip', await inflateBytes(bytes, 'gzip'));
+    else if ((bytes[0] & 0x0f) === 8 && (((bytes[0] << 8) | bytes[1]) % 31) === 0) add('zlib', await inflateBytes(bytes, 'deflate'));
+    if (!out.length) add('deflate-raw', await inflateBytes(bytes, 'deflate-raw'));
+  }
+  return out;
+}
 
-function getB64Candidates(raw) {
+function safeDecodeURI(s) { try { return decodeURIComponent(s.replace(/\+/g, '%2B')); } catch (e) { return s; } }
+function normB64(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/').replace(/[^A-Za-z0-9+\/=]/g, '');
+  var eq = s.indexOf('='); if (eq >= 0) s = s.slice(0, eq);
+  while (s.length % 4 !== 0) s += '=';
+  return s;
+}
+function b64ToBytes(b64) {
+  var bin = atob(b64), u = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return u;
+}
+function getPayloadCandidates(raw) {
   var list = [], seen = {};
-  function push(x) { if (!x || seen[x]) return; seen[x] = true; list.push(x); }
-  
-  var match = raw.match(/o=([A-Za-z0-9+/=_\-]+)/);
-  if (match) {
-    var b64 = match[1].replace(/-/g, '+').replace(/_/g, '/').replace(/[^A-Za-z0-9+/=]/g, '');
-    while (b64.length % 4 !== 0) b64 += '=';
-    push(b64);
+  function pushB64(src, s) {
+    if (!s) return;
+    var b = normB64(safeDecodeURI(String(s)));
+    if (b.length < 8 || seen['b' + b]) return;
+    seen['b' + b] = 1; list.push({ src: src, b64: b });
   }
-  
-  var whole = raw.replace(/-/g, '+').replace(/_/g, '/').replace(/[^A-Za-z0-9+/=]/g, '');
-  while (whole.length % 4 !== 0) whole += '=';
-  push(whole);
-  
+  function pushText(src, s) { if (!s || seen['t' + s]) return; seen['t' + s] = 1; list.push({ src: src, text: s }); }
+  function pushBytes(src, u) { list.push({ src: src, bytes: u }); }
+  var t = String(raw).trim();
+  if (/^[\[{]/.test(t)) pushText('json', t);
+  var isUrl = /^[a-z][a-z0-9+.\-]*:\/\//i.test(t) || /^[^\s=&]*\?[^\s]*=/.test(t);
+  if (isUrl || /^[?#]?[\w\-]{1,12}=/.test(t)) {
+    var qi = t.indexOf('?'), hi = t.indexOf('#');
+    var query = qi >= 0 ? t.slice(qi + 1, hi > qi ? hi : t.length) : '';
+    var hash = hi >= 0 ? t.slice(hi + 1) : '';
+    if (hash.indexOf('?') >= 0) hash = hash.slice(hash.indexOf('?') + 1);
+    if (!isUrl && !query) query = t.replace(/^[?#]/, '');
+    var params = [];
+    [query, hash].forEach(function (part) {
+      if (!part) return;
+      part.split('&').forEach(function (kv) {
+        var e = kv.indexOf('=');
+        if (e > 0) params.push({ k: kv.slice(0, e), v: kv.slice(e + 1) });
+        else if (kv.length >= 24) params.push({ k: '', v: kv });
+      });
+    });
+    var PRI = ['o', 'd', 'data', 'payload', 'p', 'q', 'c', 'code', 'x'];
+    params.sort(function (a, b) {
+      var ia = PRI.indexOf(a.k.toLowerCase()), ib = PRI.indexOf(b.k.toLowerCase());
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+    params.forEach(function (p) {
+      if (p.k.toLowerCase() === 'o' || p.v.length >= 24) pushB64('param:' + (p.k || '?'), p.v);
+    });
+    var pm = /^[a-z][a-z0-9+.\-]*:\/\/[^\/?#]*([^?#]*)/i.exec(t);
+    if (pm && pm[1]) {
+      var segs = pm[1].split('/').filter(Boolean);
+      segs.forEach(function (sg) {                       /* 路径里的 k=v 段，如 https://host/o=XXXX（真实二维码就是这种形式） */
+        var e = sg.indexOf('=');
+        if (e > 0 && (sg.slice(0, e).toLowerCase() === 'o' || sg.length - e > 24)) pushB64('path:' + sg.slice(0, e), sg.slice(e + 1));
+      });
+      var last = segs[segs.length - 1];
+      if (last && last.length >= 24 && last.indexOf('=') < 0) pushB64('path', last);
+    }
+  } else {
+    var h = t.replace(/^0x/i, '');
+    if (/^[0-9a-fA-F]{16,}$/.test(h) && h.length % 2 === 0) {
+      var u = new Uint8Array(h.length / 2);
+      for (var i = 0; i < u.length; i++) u[i] = parseInt(h.substr(i * 2, 2), 16);
+      pushBytes('hex', u);
+    }
+    if (!/^[\[{]/.test(t)) pushB64('whole', t);
+  }
+  var om = /(?:^|[?&#\/])o=([^&#\s]+)/.exec(t);
+  if (om) pushB64('o', om[1]);
+  if (!list.length) pushB64('whole', t);
+  if (!/^[\[{]/.test(t) && t.length <= 4000) pushText('text', t);   /* 兜底：明文 k=v / 查询串里直接带数值 */
   return list;
 }
 
-  var candidates = getB64Candidates(rawData);
-  emit('decCand', { n: candidates.length });
-  var decodable = 0;
-
-  for (var i = 0; i < candidates.length; i++) {
-    var stage = 'b64';
-    try {
-      var binStr = atob(candidates[i]);
-      var bytes = new Uint8Array(binStr.length);
-      for (var j = 0; j < binStr.length; j++) bytes[j] = binStr.charCodeAt(j);
-
-      stage = 'lz4';
-      var decompressedBytes = lz4Decode(bytes);
-      stage = 'utf8';
-      var jsonStr = new TextDecoder("utf-8").decode(decompressedBytes);
-      stage = 'json';
-      decodable++;
-
-      log('[decoded]', 'lz4-json', '→', jsonStr);
-
-      try {
-        var json = JSON.parse(jsonStr);
-        if (json && json.body !== undefined && json.height !== undefined && json.scale !== undefined) {
-            var h = parseFloat(json.height);
-            var s = parseFloat(json.scale);
-            if (isFinite(h) && isFinite(s) && h >= -2.01 && h <= 2.01 && s >= -2.01 && s <= 2.01) {
-                var r = validate(h, s);
-                if (r) {
-                    emit('decHit', { tag: 'lz4', m: 'json-parse' });
-                    return r;
-                }
-                emit('decCalc', { i: i + 1, h: h, s: s });
-            } else {
-                emit('decRange', { i: i + 1, h: h, s: s });
-            }
-        } else {
-            var jo = (json && typeof json === 'object') ? json : {};
-            emit('decFields', {
-                i: i + 1,
-                b: jo.body !== undefined ? '@L_yes' : '@L_no',
-                h: jo.height !== undefined ? '@L_yes' : '@L_no',
-                s: jo.scale !== undefined ? '@L_yes' : '@L_no'
-            });
-        }
-      } catch (e) {
-        emit('decJsonErr', { i: i + 1, n: (e && e.name) || 'Error' });
-      }
-
-      if (jsonStr.indexOf('"body"') !== -1 || jsonStr.indexOf('"wing"') !== -1) {
-          
-          var mh = jsonStr.match(/"[^"]*(?:eight|ght)[^"]*"\s*:\s*(-?\d+(?:\.\d+)?)/i);
-          var ms = jsonStr.match(/"[^"]*(?:cale|scal)[^"]*"\s*:\s*(-?\d+(?:\.\d+)?)/i);
-          
-          if (mh && ms) {
-              var h2 = parseFloat(mh[1]);
-              var s2 = parseFloat(ms[1]);
-              if (h2 >= -2.01 && h2 <= 2.01 && s2 >= -2.01 && s2 <= 2.01) {
-                  var r2 = validate(h2, s2);
-                  if (r2) {
-                      emit('decHit', { tag: 'lz4', m: 'suffix-fallback' });
-                      return r2;
-                  }
-              }
-          }
-
-          var pairMatch = jsonStr.match(/"[^"]{2,8}"\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*"[^"]{2,8}"\s*:\s*(-?\d+(?:\.\d+)?)/);
-          if (pairMatch) {
-              var h3 = parseFloat(pairMatch[1]);
-              var s3 = parseFloat(pairMatch[2]);
-              if (h3 >= -2.01 && h3 <= 2.01 && s3 >= -2.01 && s3 <= 2.01) {
-                  var r3 = validate(h3, s3);
-                  if (r3) {
-                      emit('decHit', { tag: 'lz4', m: 'pair-fallback' });
-                      return r3;
-                  }
-              }
-          }
-      }
-
-      emit('decNoMatch', {
-          i: i + 1, n: jsonStr.length,
-          f: (jsonStr.indexOf('"body"') !== -1 || jsonStr.indexOf('"wing"') !== -1) ? '@L_yes' : '@L_no'
-      });
-
-    } catch (e) {
-      emit('decStage', { i: i + 1, st: '@L_stage_' + stage, n: (e && e.name) || 'Error', m: String((e && e.message) || e).slice(0, 80) });
+function scanTopLevel(text) {
+  var i = 0, n = text.length;
+  function ws() { while (i < n && ' \t\r\n'.indexOf(text.charAt(i)) >= 0) i++; }
+  function str() {
+    var s = i; i++;
+    while (i < n) {
+      var c = text.charAt(i);
+      if (c === '\\') i += 2;
+      else if (c === '"') { i++; return text.slice(s, i); }
+      else i++;
     }
+    return null;
   }
-
-  emit('decFail', { n: candidates.length, d: decodable });
+  ws(); if (text.charAt(i) !== '{') return null; i++;
+  var pairs = [];
+  while (i < n) {
+    ws();
+    var c = text.charAt(i);
+    if (c === '}') break;
+    if (c === ',') { i++; continue; }
+    if (c !== '"') break;
+    var ks = str(); if (ks === null) break;
+    var key; try { key = JSON.parse(ks); } catch (e) { key = ks.slice(1, -1); }
+    ws(); if (text.charAt(i) !== ':') break; i++; ws();
+    var vs = i, depth = 0;
+    while (i < n) {
+      var d = text.charAt(i);
+      if (d === '"') { if (str() === null) { i = n; break; } continue; }
+      if (d === '{' || d === '[') depth++;
+      else if (d === '}' || d === ']') { if (depth === 0) break; depth--; }
+      else if (d === ',' && depth === 0) break;
+      i++;
+    }
+    var vt = text.slice(vs, i).replace(/\s+$/, ''), val;
+    try { val = JSON.parse(vt); } catch (e) { val = vt; }
+    pairs.push({ k: key, v: val });
+  }
+  return pairs.length ? pairs : null;
+}
+function loosePairs(text) {
+  var re = /["']?([A-Za-z_][\w\-]{0,24})["']?\s*[:=]\s*["']?(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)["']?/g, m, pairs = [];
+  while ((m = re.exec(text)) && pairs.length < 400) pairs.push({ k: m[1], v: m[2] });
+  return pairs;
+}
+function numOf(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  if (typeof v === 'string' && /^\s*-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\s*$/.test(v)) return parseFloat(v);
   return null;
 }
+function pickAll(pairs, aliases) {
+  var r = [];
+  for (var a = 0; a < aliases.length; a++)
+    for (var j = pairs.length - 1; j >= 0; j--)
+      if (String(pairs[j].k).toLowerCase() === aliases[a]) { var n = numOf(pairs[j].v); if (n !== null) r.push({ k: aliases[a], n: n }); }
+  return r;
+}
+function objPairs(o) { return Object.keys(o).map(function (k) { return { k: k, v: o[k] }; }); }
+
+function validateHS(h, s) {
+  if (!isFinite(h) || !isFinite(s)) return null;
+  if (h < -2.01 || h > 2.01 || s < -2.01 || s > 2.01) return null;
+  return calculateStats(h, s);
+}
+/* 在键值对里按别名找 (身高, 体型)；返回 {stats, fmt, h, s} 或 {reason, h, s} */
+function resolvePairs(pairs, depth) {
+  var hs = pickAll(pairs, H_KEYS), ss = pickAll(pairs, S_KEYS), lastBad = null;
+  for (var a = 0; a < hs.length; a++) for (var b = 0; b < ss.length; b++) {
+    var st = validateHS(hs[a].n, ss[b].n);
+    if (st) return { stats: st, fmt: hs[a].k === 'height' ? 'verbose' : 'compact', h: hs[a].n, s: ss[b].n };
+    if (!lastBad) lastBad = { reason: (isFinite(hs[a].n) && Math.abs(hs[a].n) <= 2.01 && Math.abs(ss[b].n) <= 2.01) ? 'calc' : 'range', h: hs[a].n, s: ss[b].n };
+  }
+  if (depth < 3) {
+    for (var p = 0; p < pairs.length; p++) {
+      var v = pairs[p].v;
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        var r = resolvePairs(objPairs(v), depth + 1);
+        if (r.stats) { r.fmt = 'nested:' + r.fmt; return r; }
+        if (!lastBad && r.reason) lastBad = r;
+      }
+    }
+  }
+  if (!lastBad) {
+    var fl = [];
+    for (var q = 0; q < pairs.length; q++) {
+      var n = numOf(pairs[q].v), isFloat = (typeof pairs[q].v === 'number' && pairs[q].v % 1 !== 0) || (typeof pairs[q].v === 'string' && /\./.test(pairs[q].v));
+      if (n !== null && isFloat && Math.abs(n) <= 2.01) fl.push(n);
+    }
+    if (fl.length >= 2) {
+      var st2 = validateHS(fl[0], fl[1]);
+      if (st2) return { stats: st2, fmt: 'heuristic', h: fl[0], s: fl[1] };
+      lastBad = { reason: 'calc', h: fl[0], s: fl[1] };
+    }
+  }
+  return lastBad || { reason: 'fields' };
+}
+function parsePayloadText(text) {
+  var pairs = scanTopLevel(text), res, keys = [];
+  if (!pairs && /^\s*\[/.test(text)) {
+    try { var arr = JSON.parse(text); if (Array.isArray(arr)) pairs = arr.map(function (v, i) { return { k: String(i), v: v }; }); } catch (e) {}
+  }
+  if (pairs) {
+    keys = pairs.map(function (p) { return p.k; });
+    res = resolvePairs(pairs, 0);
+    if (res.stats) {
+      var vv = pickAll(pairs, V_KEYS)[0]; res.ver = vv ? vv.n : null; res.keys = keys;
+      try { JSON.parse(text); } catch (e) { res.fmt = 'loose:' + res.fmt; }   /* 不是合法 JSON(截断/损坏) → 容错命中 */
+      return res;
+    }
+  }
+  var lp = loosePairs(text);
+  if (lp.length) {
+    if (!keys.length) keys = lp.map(function (p) { return p.k; });
+    var r2 = resolvePairs(lp, 3);
+    if (r2.stats) { var v2 = pickAll(lp, V_KEYS)[0]; r2.ver = v2 ? v2.n : null; r2.fmt = 'loose:' + r2.fmt; r2.keys = keys; return r2; }
+    if (!res || res.reason === 'fields') res = r2;
+  }
+  res = res || { reason: pairs || lp.length ? 'fields' : 'nodata' };
+  res.keys = keys;
+  return res;
+}
+
+async function decodeHeightPayload(rawData, onLog) {
+  if (!rawData || typeof rawData !== 'string') return null;
+  function emit(k, p) { if (onLog) { try { onLog(k, p); } catch (e) {} } }
+  function log() { emit('decLog', { m: Array.prototype.join.call(arguments, ' ') }); }
+
+  var cands = getPayloadCandidates(rawData);
+  emit('decCand', { n: cands.length });
+  var decodable = 0;
+
+  for (var ci = 0; ci < cands.length; ci++) {
+    var c = cands[ci], variants = [], stage = 'b64';
+    try {
+      if (c.text != null) variants = [{ d: 'plain', text: c.text }];
+      else variants = await byteVariants(c.bytes || b64ToBytes(c.b64));
+    } catch (e) {
+      emit('decStage', { i: ci + 1, st: '@L_stage_' + stage, n: (e && e.name) || 'Error', m: String((e && e.message) || e).slice(0, 80) });
+      continue;
+    }
+    if (!variants.length) { emit('decNoMatch', { i: ci + 1, n: 0, d: '-' }); continue; }
+    decodable++;
+    for (var vi = 0; vi < variants.length; vi++) {
+      var v = variants[vi];
+      emit('decVia', { i: ci + 1, src: c.src, d: v.d, n: v.text.length });
+      log('[decoded]', v.d, '→', v.text.length > 800 ? v.text.slice(0, 800) + '…' : v.text);
+      var r;
+      try { r = parsePayloadText(v.text); } catch (e) { r = { reason: 'nodata', keys: [] }; }
+      if (r.stats) {
+        if (r.ver != null && r.ver > PAYLOAD_KNOWN_VER) emit('decVer', { v: r.ver, k: PAYLOAD_KNOWN_VER });
+        r.stats.conf = /heuristic/.test(r.fmt) ? 'low' : /^loose:/.test(r.fmt) ? 'mid' : 'high';
+        emit('decHit', { tag: c.src + '/' + v.d, m: r.fmt + (r.ver != null ? ' · v' + r.ver : '') + ' · ' + r.stats.conf });
+        return r.stats;
+      }
+      if (r.reason === 'range') emit('decRange', { i: ci + 1, h: r.h, s: r.s });
+      else if (r.reason === 'calc') emit('decCalc', { i: ci + 1, h: r.h, s: r.s });
+      else if (r.reason === 'fields') emit('decFields', { i: ci + 1, k: (r.keys || []).slice(0, 16).join(',') || '-' });
+      else emit('decNoMatch', { i: ci + 1, n: v.text.length, d: v.d });
+    }
+  }
+  emit('decFail', { n: cands.length, d: decodable });
+  return null;
+}
+
+/* ================= 二维码定位 / 预处理（纯函数，可测试） ================= */
+function otsuThreshold(gray) {
+  var hist = new Uint32Array(256), n = gray.length, i;
+  for (i = 0; i < n; i++) hist[gray[i]]++;
+  var sum = 0; for (i = 0; i < 256; i++) sum += i * hist[i];
+  var wB = 0, sB = 0, best = 0, thr = 128;
+  for (i = 0; i < 256; i++) {
+    wB += hist[i]; if (!wB) continue;
+    var wF = n - wB; if (!wF) break;
+    sB += i * hist[i];
+    var mB = sB / wB, mF = (sum - sB) / wF, bt = wB * wF * (mB - mF) * (mB - mF);
+    if (bt > best) { best = bt; thr = i; }
+  }
+  return thr;
+}
+function preprocessRGBA(src, mode) {
+  var n = src.length >> 2, out = new Uint8ClampedArray(src.length), gray = new Uint8ClampedArray(n), p, i;
+  var contrast = mode === 'contrast' ? 80 : 0, bright = mode === 'bright' ? 18 : 0;
+  var f = (259 * (contrast + 255)) / (255 * (259 - contrast));
+  for (p = 0, i = 0; p < n; p++, i += 4) gray[p] = 0.299 * src[i] + 0.587 * src[i + 1] + 0.114 * src[i + 2];
+  var thr = mode === 'binary' ? otsuThreshold(gray) : 0;
+  for (p = 0, i = 0; p < n; p++, i += 4) {
+    var g = gray[p];
+    g = mode === 'binary' ? (g > thr ? 255 : 0) : f * (g - 128) + 128 + bright;
+    out[i] = out[i + 1] = out[i + 2] = g; out[i + 3] = 255;
+  }
+  return out;
+}
+/* 在截图里找"白底黑点"的高对比方块区域，返回像素矩形（含边距），找不到返回 null */
+function findQrRoi(d, w, h) {
+  var f = Math.max(2, Math.round(Math.max(w, h) / 200));
+  var gw = Math.ceil(w / f), gh = Math.ceil(h / f), g = gw * gh, mark = new Uint8Array(g), gx, gy, x, y, i;
+  for (gy = 0; gy < gh; gy++) {
+    var y0 = gy * f, y1 = Math.min(h, y0 + f);
+    for (gx = 0; gx < gw; gx++) {
+      var x0 = gx * f, x1 = Math.min(w, x0 + f), hw = 0, hd = 0;
+      for (y = y0; y < y1 && !(hw && hd); y++) {
+        for (x = x0, i = (y * w + x0) * 4; x < x1; x++, i += 4) {
+          var r = d[i], gg = d[i + 1], b = d[i + 2], lum = (r * 299 + gg * 587 + b * 114) / 1000;
+          if (lum >= 232) { if (Math.max(r, gg, b) - Math.min(r, gg, b) <= 28) hw = 1; }
+          else if (lum <= 72) hd = 1;
+        }
+      }
+      if (hw && hd) mark[gy * gw + gx] = 1;
+    }
+  }
+  var dil = new Uint8Array(g);
+  for (gy = 0; gy < gh; gy++) for (gx = 0; gx < gw; gx++) if (mark[gy * gw + gx]) {
+    for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+      var ny = gy + dy, nx = gx + dx;
+      if (ny >= 0 && ny < gh && nx >= 0 && nx < gw) dil[ny * gw + nx] = 1;
+    }
+  }
+  var seen = new Uint8Array(g), stack = new Int32Array(g), best = null;
+  for (var s0 = 0; s0 < g; s0++) {
+    if (!dil[s0] || seen[s0]) continue;
+    var sp = 0, minx = 1e9, miny = 1e9, maxx = -1, maxy = -1, cnt = 0;
+    stack[sp++] = s0; seen[s0] = 1;
+    while (sp) {
+      var c = stack[--sp], cy = (c / gw) | 0, cx = c - cy * gw;
+      if (mark[c]) { cnt++; if (cx < minx) minx = cx; if (cx > maxx) maxx = cx; if (cy < miny) miny = cy; if (cy > maxy) maxy = cy; }
+      for (var k = 0; k < 4; k++) {
+        var ax = cx + (k === 0 ? 1 : k === 1 ? -1 : 0), ay = cy + (k === 2 ? 1 : k === 3 ? -1 : 0);
+        if (ax < 0 || ay < 0 || ax >= gw || ay >= gh) continue;
+        var ni = ay * gw + ax; if (dil[ni] && !seen[ni]) { seen[ni] = 1; stack[sp++] = ni; }
+      }
+    }
+    if (cnt < 9) continue;
+    var bw = maxx - minx + 1, bh = maxy - miny + 1, ar = bw / bh;
+    if (ar < 0.6 || ar > 1.67 || cnt / (bw * bh) < 0.1 || Math.min(bw, bh) * f < 40) continue;
+    if (!best || cnt > best.cnt) best = { cnt: cnt, minx: minx, miny: miny, maxx: maxx, maxy: maxy };
+  }
+  if (!best) return null;
+  var rx = best.minx * f, ry = best.miny * f, rw = (best.maxx + 1) * f - rx, rh = (best.maxy + 1) * f - ry;
+  var pad = Math.round(Math.max(rw, rh) * 0.06) + f;
+  var X = Math.max(0, rx - pad), Y = Math.max(0, ry - pad);
+  return { x: X, y: Y, w: Math.min(w, rx + rw + pad) - X, h: Math.min(h, ry + rh + pad) - Y };
+}
+/* 裁出 ROI 并补一圈白边（QR 静区） */
+function cropWithPad(d, w, h, r) {
+  var m = Math.round(Math.max(r.w, r.h) * 0.08), cw = r.w + 2 * m, ch = r.h + 2 * m;
+  var out = new Uint8ClampedArray(cw * ch * 4).fill(255);
+  for (var y = 0; y < r.h; y++) {
+    var sy = r.y + y; if (sy >= h) break;
+    var len = Math.min(r.w, w - r.x);
+    out.set(d.subarray((sy * w + r.x) * 4, (sy * w + r.x + len) * 4), ((y + m) * cw + m) * 4);
+  }
+  return { data: out, w: cw, h: ch };
+}
+function resizeNN(d, w, h, k) {
+  var nw = Math.max(1, Math.round(w * k)), nh = Math.max(1, Math.round(h * k)), out = new Uint8ClampedArray(nw * nh * 4);
+  for (var y = 0; y < nh; y++) {
+    var sy = Math.min(h - 1, (y / k) | 0);
+    for (var x = 0; x < nw; x++) {
+      var sx = Math.min(w - 1, (x / k) | 0), si = (sy * w + sx) * 4, di = (y * nw + x) * 4;
+      out[di] = d[si]; out[di + 1] = d[si + 1]; out[di + 2] = d[si + 2]; out[di + 3] = 255;
+    }
+  }
+  return { data: out, w: nw, h: nh };
+}
+
 var LIMITS = [0.5, 2.0, 3.5, 5.0, 6.5, 7.5, 8.5, 10.0, 11.5, 13.0];
   function typeIndex(c) {
     if (c < 0) return 0;
     for (var i = 0; i < LIMITS.length; i++) if (c <= LIMITS[i]) return i;
     return LIMITS.length;
   }
-  root.HeightCore = { calculateStats: calculateStats, decodeHeightPayload: decodeHeightPayload, typeIndex: typeIndex };
+  root.HeightCore = { calculateStats: calculateStats, decodeHeightPayload: decodeHeightPayload, typeIndex: typeIndex,
+    parsePayloadText: parsePayloadText, getPayloadCandidates: getPayloadCandidates, lz4Block: lz4Block,
+    findQrRoi: findQrRoi, cropWithPad: cropWithPad, resizeNN: resizeNN, preprocessRGBA: preprocessRGBA, otsuThreshold: otsuThreshold };
   if (typeof document === 'undefined') return;
   var K_HIST = 'height-measure-history', K_LANG = 'sky-height-lang', K_THEME = 'sky-height-theme';
   var K_NICK = 'sky-height-nickname', K_SIGN = 'sky-height-sign', K_AVATAR = 'sky-height-avatar';
@@ -1050,6 +1356,9 @@ zh: {
   ariaHelp: '如何获取二维码', ariaHistory: '历史记录', ariaSettings: '设置', ariaDelete: '删除这条记录', ariaAvatar: '更换头像',
   lead: '请上传游戏内外观二维码的截图，光遇身高仪将本地化读取并处理您的身高、上限与下限数据。',
   zoneTitle: '添加外观二维码', zoneHint: '分享导入截图、选择或拖入粘贴',
+  confLabel: '命中判定：', conf_high: '载荷命中丨高置信度', conf_mid: '容错命中丨中置信度', conf_low: '启发命中丨低置信度',
+  statusReplay: '{d} 复现测量结果', histNoRaw: '这条旧记录缺少原始数据，无法复现',
+  L_histReplay: '复现历史测量 #{i} · {d} · 当前 {c} · 判定 {cf}', L_histNoRaw: '历史记录 #{i} 缺少原始数据，无法复现', L_qrConf: '命中判定 · {c}',
   statusNone: '当前暂无外观二维码图片', statusReading: '正在寻找二维码...', statusOk: '处理成功！您的身高已计算完成',
   toastDone: '测量完成',
   errNotImage: '请选择图片文件', errRead: '无法读取这张图片', errDecoder: '二维码解码器不可用',
@@ -1162,10 +1471,14 @@ zh: {
   L_qrPayload: '二维码内容元信息 · 长度 {n} · 含 o= 参数 {o} · 网址形式 {u}',
   L_qrExc: '未预期的异常 · {n} · {m}',
   L_decStage: '载荷候选 #{i} 失败 · 阶段 {st} · {n} · {m}', L_decJsonErr: '载荷候选 #{i} 的 JSON 解析失败（继续尝试正则兜底）· {n}',
-  L_decFields: '载荷候选 #{i} 的 JSON 缺少字段 · body {b} · height {h} · scale {s}',
+  L_decFields: '载荷候选 #{i} 缺少身高/体型字段 · 顶层键 {k}',
   L_decRange: '载荷候选 #{i} 数值无效或超出范围 · 身高系数 {h} · 体型基准 {s}',
   L_decCalc: '载荷候选 #{i} 计算结果无效 · 身高系数 {h} · 体型基准 {s}',
-  L_decNoMatch: '载荷候选 #{i} 未能解析出数据 · 解压后长度 {n} · 含 body/wing 标记 {f}',
+  L_decNoMatch: '载荷候选 #{i} 未能解析出数据 · 解码器 {d} · 长度 {n}',
+  L_decVia: '载荷候选 #{i} · 来源 {src} · 解码器 {d} · 解码后 {n} 字符', L_decVer: '载荷版本 v{v}（已知最高 v{k}），按通用规则解析',
+  L_qrRoi: '定位到二维码区域 · {x},{y} · {w}×{h}', L_qrRoiNone: '未定位到二维码区域，仅做全图扫描',
+  L_qrNativeOff: '原生 BarcodeDetector 不可用，使用 jsQR', L_qrNativeErr: '原生 BarcodeDetector 异常 · {n} · {m}',
+  L_qrRej: '二维码内容无法解析 · 已拒绝 {n} 次 · 继续尝试其他引擎或步骤',
   L_dropEmpty: '拖入内容中没有文件', L_dropMulti: '拖入了 {n} 个文件，仅处理第一个', L_pasteNotImage: '粘贴的文件不是图片 · {type}',
   L_avFile: '收到头像图片：{type} · 扩展名 {ext} · {kb} KB', L_avNoFile: '头像：没有收到文件',
   L_avReadErr: '头像文件读取出错 · {n} · {m}', L_avImgFail: '头像图片解码失败 · {mime} · 数据 {kb} KB',
@@ -1183,6 +1496,9 @@ zh: {
   ariaHelp: 'How to get the QR code', ariaHistory: 'History', ariaSettings: 'Settings', ariaDelete: 'Delete this entry', ariaAvatar: 'Change avatar',
   lead: 'Please upload a screenshot of your in-game Outfit QR code, SkyHeight will locally read and process your height and its limits.',
   zoneTitle: 'Add Outfit QR screenshot', zoneHint: 'Import, select, drag or paste',
+  confLabel: 'Match: ', conf_high: 'Payload match | High confidence', conf_mid: 'Tolerant match | Medium confidence', conf_low: 'Heuristic match | Low confidence',
+  statusReplay: '{d} Measurement replayed', histNoRaw: 'This old entry has no raw data and cannot be replayed',
+  L_histReplay: 'Replayed history entry #{i} · {d} · current {c} · match {cf}', L_histNoRaw: 'History entry #{i} has no raw data, cannot replay', L_qrConf: 'Match grade · {c}',
   statusNone: 'No Outfit QR image yet', statusReading: 'Searching for QR code...', statusOk: 'Processed Height calculated',
   toastDone: 'Measurement complete',
   errNotImage: 'Please choose an image file', errRead: 'Could not read this image', errDecoder: 'QR decoder unavailable',
@@ -1295,10 +1611,14 @@ zh: {
   L_qrPayload: 'QR payload meta · length {n} · has o= param {o} · URL-like {u}',
   L_qrExc: 'Unexpected exception · {n} · {m}',
   L_decStage: 'Payload candidate #{i} failed · stage {st} · {n} · {m}', L_decJsonErr: 'Payload candidate #{i}: JSON parse failed (trying regex fallback) · {n}',
-  L_decFields: 'Payload candidate #{i}: JSON missing fields · body {b} · height {h} · scale {s}',
+  L_decFields: 'Payload candidate #{i}: missing height/scale fields · top-level keys {k}',
   L_decRange: 'Payload candidate #{i}: value invalid or out of range · height {h} · scale {s}',
   L_decCalc: 'Payload candidate #{i}: calculation invalid · height {h} · scale {s}',
-  L_decNoMatch: 'Payload candidate #{i}: no data parsed · decompressed length {n} · has body/wing marker {f}',
+  L_decNoMatch: 'Payload candidate #{i}: no data parsed · decoder {d} · length {n}',
+  L_decVia: 'Payload candidate #{i} · source {src} · decoder {d} · {n} chars decoded', L_decVer: 'Payload version v{v} (highest known v{k}), parsed with generic rules',
+  L_qrRoi: 'QR region located · {x},{y} · {w}×{h}', L_qrRoiNone: 'No QR region located, full-image scan only',
+  L_qrNativeOff: 'Native BarcodeDetector unavailable, using jsQR', L_qrNativeErr: 'Native BarcodeDetector error · {n} · {m}',
+  L_qrRej: 'QR content could not be parsed · rejected {n} time(s) · trying other engines or steps',
   L_dropEmpty: 'Drop contained no files', L_dropMulti: 'Dropped {n} files, only the first is processed', L_pasteNotImage: 'Pasted file is not an image · {type}',
   L_avFile: 'Avatar image received: {type} · ext {ext} · {kb} KB', L_avNoFile: 'Avatar: no file received',
   L_avReadErr: 'Avatar file read error · {n} · {m}', L_avImgFail: 'Avatar image decode failed · {mime} · data {kb} KB',
@@ -1329,7 +1649,7 @@ zh: {
   var ICON_OK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
   var ICON_ERR = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.1"/></svg>';
   var ICON_X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6 18 18M18 6 6 18"/></svg>';
-  var CURRENT_VER = '1.0.3', CURRENT_BUILD = '2574';
+  var CURRENT_VER = '1.0.3', CURRENT_BUILD = '5663';
   var WEB_URL = 'https://skyheight.pages.dev';
   var SHARE_URL = 'https://skyheight.pages.dev/SkyHeight.apk';
   var FEEDBACK_EMAIL = 'goskynews@outlook.com';
@@ -1504,7 +1824,7 @@ zh: {
       sheetStack = [];
       $('mask').classList.remove('show');
       document.body.classList.remove('no-scroll');
-      if (current) $('fab-reset').classList.remove('hidden');
+      if (current && !current.replay) $('fab-reset').classList.remove('hidden');
     }
   }
 
@@ -1587,7 +1907,7 @@ zh: {
   }
   function pushHistory(s) {
     var h = getHistory();
-    h.unshift({ height: s.current.toFixed(3), ti: typeIndex(s.current), lk: levelKey(s), date: new Date().toISOString() });
+    h.unshift({ height: s.current.toFixed(3), ti: typeIndex(s.current), lk: levelKey(s), rh: s.rawHeight, rs: s.rawScale, cf: s.conf || '', date: new Date().toISOString() });
     if (h.length > HMAX) h.length = HMAX;
     setHistory(h);
     dlog('info', 'history', 'histPush', { n: h.length });
@@ -1604,14 +1924,36 @@ zh: {
     h.forEach(function (it, i) {
       var typeText = typeof it.ti === 'number' ? t(it.lk || tierKey(it.ti)) : (it.type || '');
       var row = document.createElement('div');
-      row.className = 'hrow';
+      row.className = 'hrow' + (typeof it.rh === 'number' ? ' replay' : '');
+      row.setAttribute('data-ridx', i);
       row.innerHTML = '<div><div class="a">' + esc(it.height) + '<span>' + esc(typeText) + '</span></div><div class="b">' + esc(fmtDate(it.date)) + '</div></div>' +
         '<button class="ibtn small" type="button" data-idx="' + i + '" aria-label="' + esc(t('ariaDelete')) + '" style="width:36px;height:36px;border-radius:10px;box-shadow:none;background:transparent;color:var(--on-surface-variant)">' + ICON_X + '</button>';
       list.appendChild(row);
     });
   }
+  function fmtDateShort(d) {
+    if (lang !== 'zh') return fmtDate(d);
+    try { var x = new Date(d), p = function (n) { return n < 10 ? '0' + n : '' + n; };
+      return x.getFullYear() + '/' + (x.getMonth() + 1) + '/' + x.getDate() + ' ' + p(x.getHours()) + ':' + p(x.getMinutes()); }
+    catch (e) { return d; }
+  }
+  function replayHistory(idx) {
+    var it = getHistory()[idx]; if (!it) return;
+    if (typeof it.rh !== 'number' || typeof it.rs !== 'number') { dlog('warn', 'history', 'histNoRaw', { i: idx }); toast(t('histNoRaw')); return; }
+    var stt = calculateStats(it.rh, it.rs);
+    if (!stt) { dlog('warn', 'history', 'histNoRaw', { i: idx }); toast(t('histNoRaw')); return; }
+    stt.conf = it.cf || ''; stt.replay = true;
+    runId++;
+    current = stt; renderResult();
+    $('fab-reset').classList.add('hidden');
+    st = { key: 'statusReplay', kind: 'ok', iso: it.date }; renderStatus();
+    dlog('action', 'history', 'histReplay', { i: idx, d: fmtDateShort(it.date), c: stt.current.toFixed(3), cf: stt.conf ? '@conf_' + stt.conf : '-' });
+    closeSheet('sheet-history');
+    setTimeout(function () { var r = $('result'); r && r.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120);
+  }
   $('hist-list').addEventListener('click', function (e) {
-    var b = e.target.closest('button[data-idx]'); if (!b) return;
+    var b = e.target.closest('button[data-idx]');
+    if (!b) { var rw = e.target.closest('.hrow[data-ridx]'); if (rw) replayHistory(parseInt(rw.getAttribute('data-ridx'), 10)); return; }
     var idx = parseInt(b.getAttribute('data-idx'), 10);
     askConfirm('cDelTitle', 'cDelMsg', 'cDelOk', function () {
       var h = getHistory(); h.splice(idx, 1); setHistory(h); renderHistory(); dlog('action', 'history', 'histDel', { i: idx });
@@ -1627,11 +1969,11 @@ zh: {
   $('btn-help').addEventListener('click', function () { dlog('action', 'entry', 'btnHelp'); openSheet('sheet-help'); });
   var current = null;
   var st = { key: 'statusNone', kind: '' };
-  function setStatus(key, kind) { st = { key: key, kind: kind || '' }; renderStatus(); }
+  function setStatus(key, kind) { st = { key: key, kind: kind || '' }; renderStatus(); }  /* st.iso 仅用于"复现"状态 */
   function renderStatus() {
     var el = $('status');
     el.className = 'status' + (st.kind ? ' ' + st.kind : '');
-    el.innerHTML = '<span>' + esc(t(st.key)) + '</span>';
+    el.innerHTML = '<span>' + esc(t(st.key, st.iso ? { d: fmtDateShort(st.iso) } : null)) + '</span>';
     $('progress-wrap').classList.remove('show');
     $('progress-text').classList.remove('show');
     setProgress(0, true);
@@ -1649,8 +1991,11 @@ zh: {
       $('v-range').textContent = '--';
       $('dot').style.left = '50%';
       $('fill').style.width = '50%';
+      $('v-conf').hidden = true;
       return;
     }
+    var cfEl = $('v-conf');
+    if (s.conf) { cfEl.hidden = false; cfEl.textContent = t('confLabel') + t('conf_' + s.conf); } else cfEl.hidden = true;
     var ti = typeIndex(s.current);
     var li = limitInfo(s), nearTall = li.nearTall, n = li.n;
     $('v-current').textContent = s.current.toFixed(3);
@@ -1686,18 +2031,6 @@ zh: {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   function KErr(key) { var e = new Error(key); e.key = key; return e; }
-  function preprocess(img, mode) {
-    var out = new Uint8ClampedArray(img.data);
-    var contrast = mode === 'contrast' ? 80 : 0, bright = mode === 'bright' ? 18 : 0;
-    var f = (259 * (contrast + 255)) / (255 * (259 - contrast));
-    for (var i = 0; i < out.length; i += 4) {
-      var g = 0.299 * out[i] + 0.587 * out[i + 1] + 0.114 * out[i + 2];
-      if (mode === 'binary') g = g > 128 ? 255 : 0;
-      else g = Math.max(0, Math.min(255, f * (g - 128) + 128 + bright));
-      out[i] = out[i + 1] = out[i + 2] = g;
-    }
-    return new ImageData(out, img.width, img.height);
-  }
   var tick = function () { return new Promise(function (r) { setTimeout(r, 0); }); };
   function loadImage(src) {
     return new Promise(function (res, rej) {
@@ -1715,75 +2048,134 @@ zh: {
     inner.style.transform = 'translateX(' + off + '%)';
     if (instant) { void bar.offsetWidth; bar.style.transition = inner.style.transition = ''; }
   }
-  async function scanQR(src, onProgress, isStale) {
-  if (typeof jsQR !== 'function') { dlog('err', 'qr', 'qrNoDecoder'); throw KErr('errDecoder'); }
-  var t0 = Date.now();
-  var image;
-  try { image = await loadImage(src); }
-  catch (e) {
-    var imgMime = dataMime(src);
-    dlog('err', 'qr', 'qrImgFail', { mime: imgMime, kb: Math.round(String(src).length / 1024) });
-    if (/hei[cf]/i.test(imgMime)) dlog('info', 'qr', 'qrHeic');
-    throw e;
-  }
-  dlog('info', 'qr', 'qrImage', { w: image.width, h: image.height });
-  var canvas = document.createElement('canvas');
-  var ctx = canvas.getContext('2d', { willReadFrequently: true });
-  var scales = [1, 0.5, 0.75, 1.5], modes = ['normal', 'contrast', 'bright', 'binary'];
-  var totalSteps = scales.length * modes.length;
-  var currentStep = 0, tried = 0;
-
-  dlog('info', 'qr', 'qrStart', {
-    w: image.width, h: image.height,
-    scales: scales.join(','), modes: modes.join(','), total: totalSteps
-  });
-
-  function stale() { if (isStale && isStale()) { dlog('info', 'qr', 'qrStale'); throw KErr('cancelled'); } }
-  for (var si = 0; si < scales.length; si++) {
-    var sc = scales[si];
-    var w = Math.round(image.width * sc), h = Math.round(image.height * sc);
-    if (w > 4200 || h > 4200 || w < 40 || h < 40) {
-      dlog('warn', 'qr', 'qrSkip', { s: sc, w: w, h: h });
-      currentStep += modes.length; continue;
-    }
-    var source;
-    try {
-      canvas.width = w; canvas.height = h;
-      ctx.drawImage(image, 0, 0, w, h);
-      source = ctx.getImageData(0, 0, w, h);
-    } catch (e) {
-      dlog('err', 'qr', 'qrCanvasErr', { n: errName(e), m: errMsg(e), s: sc, w: w, h: h });
+  /* 扫描流水线：原生 BarcodeDetector → 二维码区域(ROI)定位后精扫 → 全图多缩放/多预处理 jsQR
+   * accept(raw) 返回解析结果(真值=接受)；被拒绝时继续换引擎/步骤，两个引擎读到同一内容即判定为"二维码有效但载荷无法解析" */
+  async function scanQR(src, onProgress, isStale, accept) {
+    if (typeof jsQR !== 'function') { dlog('err', 'qr', 'qrNoDecoder'); throw KErr('errDecoder'); }
+    var t0 = Date.now();
+    var image;
+    try { image = await loadImage(src); }
+    catch (e) {
+      var imgMime = dataMime(src);
+      dlog('err', 'qr', 'qrImgFail', { mime: imgMime, kb: Math.round(String(src).length / 1024) });
+      if (/hei[cf]/i.test(imgMime)) dlog('info', 'qr', 'qrHeic');
       throw e;
     }
-    for (var mi = 0; mi < modes.length; mi++) {
-      await tick();
-      stale();
+    dlog('info', 'qr', 'qrImage', { w: image.width, h: image.height });
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d', { willReadFrequently: true });
+    var scales = [1, 0.5, 0.75, 1.5], modes = ['normal', 'contrast', 'bright', 'binary'];
+    var maxSide = Math.max(image.width, image.height);
+    function draw(sc) {
+      var w = Math.round(image.width * sc), h = Math.round(image.height * sc);
+      canvas.width = w; canvas.height = h;
+      ctx.drawImage(image, 0, 0, w, h);
+      return { data: ctx.getImageData(0, 0, w, h).data, w: w, h: h };
+    }
+    function stale() { if (isStale && isStale()) { dlog('info', 'qr', 'qrStale'); throw KErr('cancelled'); } }
+
+    /* 基准像素：1× 放得下就用 1×，否则按 4000px 等比缩小（原版会直接跳过所有缩放） */
+    var baseSc = maxSide > 4200 ? 4000 / maxSide : 1, base = null, roi = null, crop = null;
+    var fullScales = [];
+    for (var si = 0; si < scales.length; si++) {
+      var sc0 = scales[si], w0 = Math.round(image.width * sc0), h0 = Math.round(image.height * sc0);
+      if (w0 > 4200 || h0 > 4200 || w0 < 40 || h0 < 40) { dlog('warn', 'qr', 'qrSkip', { s: sc0, w: w0, h: h0 }); continue; }
+      fullScales.push(sc0);
+    }
+    try {
+      base = draw(baseSc);
+      roi = findQrRoi(base.data, base.w, base.h);
+      if (roi) {
+        crop = cropWithPad(base.data, base.w, base.h, roi);
+        dlog('info', 'qr', 'qrRoi', { x: roi.x, y: roi.y, w: roi.w, h: roi.h });
+      } else dlog('info', 'qr', 'qrRoiNone');
+    } catch (e) {
+      dlog('err', 'qr', 'qrCanvasErr', { n: errName(e), m: errMsg(e), s: baseSc, w: image.width, h: image.height });
+      throw e;
+    }
+
+    var useNative = false;
+    if (typeof BarcodeDetector === 'function') {
+      try {
+        var fmts = BarcodeDetector.getSupportedFormats ? await BarcodeDetector.getSupportedFormats() : ['qr_code'];
+        useNative = fmts.indexOf('qr_code') >= 0;
+      } catch (e) { useNative = false; }
+    }
+    if (!useNative) dlog('info', 'qr', 'qrNativeOff');
+
+    var roiSteps = [];
+    if (crop) {
+      roiSteps.push(['roi·normal', 1, 'normal'], ['roi·otsu', 1, 'binary']);
+      if (Math.max(crop.w, crop.h) < 900) roiSteps.push(['roi·x2', 2, 'normal']);
+      roiSteps.push(['roi·contrast', 1, 'contrast']);
+    }
+    var totalSteps = (useNative ? 1 : 0) + roiSteps.length + fullScales.length * modes.length;
+    var currentStep = 0, tried = 0, rejected = 0, lastRaw = null;
+    dlog('info', 'qr', 'qrStart', {
+      w: image.width, h: image.height,
+      scales: (useNative ? 'native+' : '') + (roiSteps.length ? 'roi+' : '') + fullScales.join(','), modes: modes.join(','), total: totalSteps
+    });
+
+    async function step(label, sc, w, h, fn) {
+      await tick(); stale();
       currentStep++; tried++;
       if (onProgress) onProgress(currentStep, totalSteps);
-      var stepT0 = Date.now();
-      var p, code;
-      try {
-        p = preprocess(source, modes[mi]);
-        code = jsQR(p.data, p.width, p.height, { inversionAttempts: 'attemptBoth' });
-      } catch (e) {
-        dlog('err', 'qr', 'qrExc', { n: errName(e), m: errMsg(e) });
+      var st0 = Date.now(), raw = null;
+      try { raw = await fn(); }
+      catch (e) { dlog('err', 'qr', 'qrExc', { n: errName(e), m: errMsg(e) }); throw e; }
+      var hit = !!raw;
+      dlog(hit ? 'ok' : 'info', 'qr', 'qrStep', { c: currentStep, t: totalSteps, s: sc, m: label, w: w, h: h, hit: hit ? 1 : 0, ms: Date.now() - st0 });
+      if (!hit) return null;
+      dlog('ok', 'qr', 'qrHit', { s: sc, m: label, n: raw.length, ms: Date.now() - t0 });
+      if (!accept) return { raw: raw };
+      var res = await accept(raw);
+      if (res) return { raw: raw, stats: res };
+      rejected++;
+      dlog('warn', 'qr', 'qrRej', { n: rejected });
+      if (raw === lastRaw || rejected >= 3) throw KErr('errPayload');
+      lastRaw = raw;
+      return null;
+    }
+    function jsq(buf, w, h, mode) {
+      var out = preprocessRGBA(buf, mode);
+      var code = jsQR(out, w, h, { inversionAttempts: 'attemptBoth' });
+      return code && code.data ? code.data : null;
+    }
+
+    var found;
+    if (useNative) {
+      found = await step('native', 1, image.width, image.height, async function () {
+        try {
+          var det = new BarcodeDetector({ formats: ['qr_code'] });
+          var r = await det.detect(image), best = null;
+          for (var k = 0; k < (r ? r.length : 0); k++) if (r[k].rawValue && (!best || r[k].rawValue.length > best.length)) best = r[k].rawValue;
+          return best;
+        } catch (e) { dlog('warn', 'qr', 'qrNativeErr', { n: errName(e), m: errMsg(e) }); return null; }
+      });
+      if (found) return found;
+    }
+    for (var ri = 0; ri < roiSteps.length; ri++) {
+      var rs = roiSteps[ri], buf = crop;
+      if (rs[1] !== 1) buf = resizeNN(crop.data, crop.w, crop.h, rs[1]);
+      found = await step(rs[0], rs[1], buf.w, buf.h, function () { return jsq(buf.data, buf.w, buf.h, rs[2]); });
+      if (found) return found;
+    }
+    for (var fi = 0; fi < fullScales.length; fi++) {
+      var sc = fullScales[fi], source;
+      try { source = (sc === baseSc && base) ? base : draw(sc); }
+      catch (e) {
+        dlog('err', 'qr', 'qrCanvasErr', { n: errName(e), m: errMsg(e), s: sc, w: Math.round(image.width * sc), h: Math.round(image.height * sc) });
         throw e;
       }
-      var hit = !!(code && code.data);
-      dlog(hit ? 'ok' : 'info', 'qr', 'qrStep', {
-        c: currentStep, t: totalSteps, s: sc, m: modes[mi],
-        w: w, h: h, hit: hit ? 1 : 0, ms: Date.now() - stepT0
-      });
-      if (hit) {
-        dlog('ok', 'qr', 'qrHit', { s: sc, m: modes[mi], n: code.data.length, ms: Date.now() - t0 });
-        return code.data;
+      for (var mi = 0; mi < modes.length; mi++) {
+        found = await step(modes[mi], sc, source.w, source.h, function () { return jsq(source.data, source.w, source.h, modes[mi]); });
+        if (found) return found;
       }
     }
+    if (tried === 0) dlog('warn', 'qr', 'qrNoStep', { w: image.width, h: image.height });
+    dlog('warn', 'qr', 'qrMiss', { n: tried, ms: Date.now() - t0 });
+    throw KErr(rejected > 0 ? 'errPayload' : 'errNoQr');
   }
-  if (tried === 0) dlog('warn', 'qr', 'qrNoStep', { w: image.width, h: image.height });
-  dlog('warn', 'qr', 'qrMiss', { n: tried, ms: Date.now() - t0 });
-  throw KErr('errNoQr');
-}
 var runId = 0;
 function isImageFile(file) {
   return /^image\//.test(file.type || '') || /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(file.name || '');
@@ -1824,26 +2216,29 @@ function handleFile(file, src) {
       $('progress-text').classList.add('show');
     }, 300);
     try {
-      var raw = await scanQR(url, function (current, total) {
+      var scanRes = await scanQR(url, function (current, total) {
         if (my !== runId) return;
         setProgress(current / total * 100);
         $('progress-text').textContent = t('progressText', { c: current, t: total });
-      }, function () { return my !== runId; });
+      }, function () { return my !== runId; }, function (raw) {
+        dlog('info', 'qr', 'qrPayload', {
+          n: String(raw).length,
+          o: /o=/.test(raw) ? '@L_yes' : '@L_no',
+          u: /^https?:\/\//i.test(raw) ? '@L_yes' : '@L_no'
+        });
+        return decodeHeightPayload(raw, function (k, p) {
+          if (k === 'decLog') { dlogRaw('info', 'qr', p.m); return; }
+          dlog(k === 'decFail' ? 'warn' : 'info', 'qr', k, p);
+        });
+      });
       clearTimeout(progressTimer);
       $('progress-wrap').classList.remove('show');
       $('progress-text').classList.remove('show');
       if (my !== runId) return;
-      dlog('info', 'qr', 'qrPayload', {
-        n: String(raw).length,
-        o: /o=/.test(raw) ? '@L_yes' : '@L_no',
-        u: /^https?:\/\//i.test(raw) ? '@L_yes' : '@L_no'
-      });
-      var stats = decodeHeightPayload(raw, function (k, p) {
-        if (k === 'decLog') { dlogRaw('info', 'qr', p.m); return; }
-        dlog(k === 'decFail' ? 'warn' : 'info', 'qr', k, p);
-      });
+      var stats = scanRes.stats;
       if (!stats) throw KErr('errPayload');
       dlog('ok', 'qr', 'qrStats', { c: stats.current.toFixed(3), mx: stats.tallest.toFixed(3), mn: stats.shortest.toFixed(3), h: stats.rawHeight, s: stats.rawScale, ti: typeIndex(stats.current) });
+      dlog('info', 'qr', 'qrConf', { c: '@conf_' + (stats.conf || 'high') });
       showResult(stats); pushHistory(stats);
       setStatus('statusOk', 'ok');
       dlog('ok', 'qr', 'qrDone', { ms: Date.now() - t0 });
@@ -2294,6 +2689,9 @@ function importAvatar(file) {
   var K_LAST_CHECK = 'sky-height-last-check';
 
   var LOCAL_CHANGELOG = [
+    { version: '1.0.3', build: '5663', date: '2026-11-14',
+      zh: ['版本内部构建优化'],
+      en: ['Internal build improvements'] },
     { version: '1.0.3', build: '2574', date: '2026-11-14',
       zh: ['版本内部构建优化'],
       en: ['Internal build improvements'] },
