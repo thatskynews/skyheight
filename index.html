@@ -3552,6 +3552,56 @@ function renderLegal() {
   dlogRaw('info', 'env', navigator.userAgent);
 
 var avatarsState = 0, avatarCbs = [];
+var AV_CACHE_DB = 'skyheight-cache', AV_CACHE_STORE = 'kv', AV_CACHE_KEY = 'avatars-v1';
+function avCacheGet(cb) {
+  try {
+    if (!window.indexedDB) return cb(null);
+    var req = indexedDB.open(AV_CACHE_DB, 1);
+    req.onupgradeneeded = function () {
+      var db = req.result;
+      if (!db.objectStoreNames.contains(AV_CACHE_STORE)) db.createObjectStore(AV_CACHE_STORE);
+    };
+    req.onerror = function () { cb(null); };
+    req.onsuccess = function () {
+      var db = req.result;
+      try {
+        var tx = db.transaction(AV_CACHE_STORE, 'readonly');
+        var g = tx.objectStore(AV_CACHE_STORE).get(AV_CACHE_KEY);
+        g.onsuccess = function () { cb(g.result || null); };
+        g.onerror = function () { cb(null); };
+      } catch (e) { cb(null); }
+    };
+  } catch (e) { cb(null); }
+}
+function avCacheSet(arr) {
+  try {
+    if (!window.indexedDB) return;
+    var req = indexedDB.open(AV_CACHE_DB, 1);
+    req.onupgradeneeded = function () {
+      var db = req.result;
+      if (!db.objectStoreNames.contains(AV_CACHE_STORE)) db.createObjectStore(AV_CACHE_STORE);
+    };
+    req.onsuccess = function () {
+      try {
+        var db = req.result;
+        db.transaction(AV_CACHE_STORE, 'readwrite').objectStore(AV_CACHE_STORE).put(arr, AV_CACHE_KEY);
+      } catch (e) {}
+    };
+  } catch (e) {}
+}
+function restoreAvatarsCache() {
+  avCacheGet(function (arr) {
+    if (avatarsState !== 0) return;
+    if (!Array.isArray(arr) || !arr.length) return;
+    var first = arr[0] || {};
+    if (typeof first.b64 !== 'string' || first.b64.indexOf('data:image') !== 0) return;
+    window.BUILTIN_AVATARS = arr;
+    avatarsState = 2;
+    renderAvatar();
+    if (openSheetId === 'sheet-avatar') renderAvatarGrid();
+  });
+}
+restoreAvatarsCache();
 function loadAvatars(cb) {
   if (typeof cb === 'function') avatarCbs.push(cb);
   if (avatarsState === 2) {
@@ -3589,6 +3639,7 @@ function loadAvatars(cb) {
     }
 
     avatarsState = 2;
+    if (Array.isArray(arr) && n > 0) avCacheSet(arr);
     renderAvatar();
     if (openSheetId === 'sheet-avatar') renderAvatarGrid();
     var cbs = avatarCbs; avatarCbs = [];
