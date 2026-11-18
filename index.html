@@ -2523,8 +2523,8 @@ zh: {
     var li = limitInfo(s);
     if (li.atLimit) return li.nearTall ? 'ty0' : 'ty10';
     var ti = typeIndex(s.current);
-    if (ti === 0 && li.d > 0.5) ti = 1;
-    if (ti === 10 && li.d > 0.5) ti = 9;
+    if (ti === 0) ti = 1;
+    if (ti === 10) ti = 9;
     return tierKey(ti);
   }
   function pushHistory(s) {
