@@ -297,6 +297,16 @@ a.btn{text-decoration:none}
 .avatar-opt:active{transform:scale(.9)}
 .avatar-opt[aria-checked="true"]{border-color:var(--primary)}
 .avatar-opt .avatar-emoji{font-size:26px;background:transparent!important}
+.avatar-opt.skeleton{position:relative;pointer-events:none;border-color:transparent;overflow:hidden;
+  background:radial-gradient(120% 120% at 28% 18%,color-mix(in srgb,var(--on-surface) 15%,var(--surface-container)) 0%,color-mix(in srgb,var(--on-surface) 8%,var(--surface-container)) 52%,color-mix(in srgb,var(--on-surface) 12%,var(--surface-container)) 100%)}
+.avatar-opt.skeleton::after{content:"";position:absolute;top:-25%;bottom:-25%;left:0;width:72%;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(90deg,transparent 0%,color-mix(in srgb,var(--on-surface) 14%,transparent) 24%,color-mix(in srgb,var(--on-surface) 30%,transparent) 45%,color-mix(in srgb,var(--on-surface) 34%,transparent) 55%,color-mix(in srgb,var(--on-surface) 12%,transparent) 78%,transparent 100%);
+  transform:translateX(-190%) skewX(-16deg);will-change:transform;
+  animation:avScan 1.9s cubic-bezier(.33,0,.2,1) infinite;animation-delay:var(--d,0s)}
+@keyframes avScan{0%{transform:translateX(-190%) skewX(-16deg)}70%,100%{transform:translateX(330%) skewX(-16deg)}}
+@media (prefers-reduced-motion:reduce){.avatar-opt.skeleton::after{animation:none;display:none}}
+.avatar-grid.failed .avatar-opt.skeleton::after{animation:none;display:none}
+.avatar-grid.failed .avatar-opt.skeleton{background:color-mix(in srgb,var(--on-surface) 7%,var(--surface-container))}
 .seg{
   position:relative;
   display:flex;
@@ -1435,7 +1445,7 @@ zh: {
   L_histReplay: '复现历史测量 #{i} · {d} · 当前 {c} · 判定 {cf}', L_histNoRaw: '历史记录 #{i} 缺少原始数据，无法复现', L_qrConf: '命中判定 · {c}',
   statusNone: '当前暂无外观二维码图片', statusReading: '正在寻找二维码...', statusOk: '处理成功！您的身高已计算完成',
   toastDone: '测量完成',
-  errNotImage: '请选择图片文件', errRead: '无法读取这张图片', errDecoder: '二维码解码器不可用',
+  errNotImage: '请选择图片文件', errRead: '无法读取这张图片', errDecoder: '二维码解码器不可用', avatarsFail: '头像加载失败',
   errNoQr: '图片里没有找到外观二维码', errPayload: '读到了二维码 但是无效的二维码',
   labCurrent: '当前身高值', endMax: '最高', endMin: '最矮', labMax: '最高值（Max）', labMin: '最矮值（Min）',
   details: '数据细节', range: '范围', again: '重新测量',
@@ -1578,7 +1588,7 @@ zh: {
   L_histReplay: 'Replayed history entry #{i} · {d} · current {c} · match {cf}', L_histNoRaw: 'History entry #{i} has no raw data, cannot replay', L_qrConf: 'Match grade · {c}',
   statusNone: 'No Outfit QR image yet', statusReading: 'Searching for QR code...', statusOk: 'Processed Height calculated',
   toastDone: 'Measurement complete',
-  errNotImage: 'Please choose an image file', errRead: 'Could not read this image', errDecoder: 'QR decoder unavailable',
+  errNotImage: 'Please choose an image file', errRead: 'Could not read this image', errDecoder: 'QR decoder unavailable', avatarsFail: 'Failed to load avatars',
   errNoQr: 'No Outfit QR code found in the image', errPayload: 'QR code found but it is invalid',
   labCurrent: 'Current height value', endMax: 'Tallest', endMin: 'Shortest', labMax: 'Tallest (Max)', labMin: 'Shortest (Min)',
   details: 'Details', range: 'Range', again: 'Measure again',
@@ -2466,9 +2476,21 @@ function avatarHTML(a) {
     var tv = $('top-avatar-view');
     if (tv) { tv.innerHTML = avatarHTML(profile.avatar); }
   }
+function openAvatarSheet() {
+  openSheet('sheet-avatar');
+  renderAvatarGrid();
+  if (avatarsState !== 2) loadAvatars();
+}
 function renderAvatarGrid() {
   var grid = $('avatar-grid');
   if (!grid) return;
+  grid.classList.remove('failed');
+  if (avatarsState !== 2 || !Array.isArray(BUILTIN_AVATARS) || !BUILTIN_AVATARS.length) {
+    var sk = '';
+    for (var si = 0; si < 44; si++) sk += '<div class="avatar-opt skeleton" style="--d:' + (Math.floor(si / 4) * 0.12 + (si % 4) * 0.015).toFixed(3) + 's"></div>';
+    grid.innerHTML = sk;
+    return;
+  }
   grid.innerHTML = '';
   BUILTIN_AVATARS.forEach(function (av, i) {
     var btn = document.createElement('button');
@@ -2591,9 +2613,7 @@ function importAvatar(file) {
   };
   reader.readAsDataURL(file);
 }
-  $('avatar-btn').addEventListener('click', function () { dlog('action', 'avatar', 'btnAvatar'); openSheet('sheet-avatar');
-  renderAvatarGrid();   
-  });
+  $('avatar-btn').addEventListener('click', function () { dlog('action', 'avatar', 'btnAvatar'); openAvatarSheet(); });
   $('btn-avatar-local').addEventListener('click', function () { $('avatar-file').click(); });
   $('avatar-file').addEventListener('change', function () {
     var f = this.files[0];
@@ -2606,6 +2626,7 @@ function importAvatar(file) {
     setTimeout(function() { closeSheet('sheet-save-avatar', false); }, 300);
   });
   $('btn-shuffle-avatar').addEventListener('click', function () {
+    if (avatarsState !== 2) { loadAvatars(); return; }
     var validIndices = [];
     BUILTIN_AVATARS.forEach(function(av, i) { if (av.b64) validIndices.push(i); });
     if (validIndices.length === 0) return;
@@ -2845,9 +2866,7 @@ function importAvatar(file) {
 })();
 
   $('btn-settings').addEventListener('click', function () { dlog('action', 'entry', 'btnSettings'); renderSettings(); openSheet('sheet-settings'); });
-  $('btn-top-avatar').addEventListener('click', function () { dlog('action', 'entry', 'btnAvatar'); renderSettings(); openSheet('sheet-avatar');
-  renderAvatarGrid();
-  });
+  $('btn-top-avatar').addEventListener('click', function () { dlog('action', 'entry', 'btnAvatar'); renderSettings(); openAvatarSheet(); });
 
   var VERSION_URL = 'https://skyheight.pages.dev/version.json';
   var K_UPDATE_IGNORE = 'sky-height-update-ignore';
@@ -3533,7 +3552,18 @@ function renderLegal() {
   });
   dlogRaw('info', 'env', navigator.userAgent);
 
-(function loadAvatarsAsync() {
+var avatarsState = 0, avatarCbs = [];
+function loadAvatars(cb) {
+  if (typeof cb === 'function') avatarCbs.push(cb);
+  if (avatarsState === 2) {
+    var done = avatarCbs; avatarCbs = [];
+    done.forEach(function (f) { try { f(); } catch (e) {} });
+    return;
+  }
+  if (avatarsState === 1) return;
+  if (avatarsState === 3) avatarsState = 0;
+
+  avatarsState = 1;
   var t0 = Date.now();
   var src = 'avatars.js';
   dlogRaw('info', 'boot', 'avatars.js 开始加载 / loading · ' + src);
@@ -3559,18 +3589,26 @@ function renderLegal() {
         (hasB64 ? '' : ' · 首项缺少 b64 / first item missing b64'));
     }
 
+    avatarsState = 2;
     renderAvatar();
-    renderProfile();
     if (openSheetId === 'sheet-avatar') renderAvatarGrid();
+    var cbs = avatarCbs; avatarCbs = [];
+    cbs.forEach(function (f) { try { f(); } catch (e) {} });
   };
 
   s.onerror = function () {
+    avatarsState = 3;
+    var g = document.getElementById('avatar-grid');
+    if (g) g.classList.add('failed');
+    if (openSheetId === 'sheet-avatar') toast(t('avatarsFail'), 'ok');
     var ms = Date.now() - t0;
     dlogRaw('err', 'boot', 'avatars.js 加载失败 / failed to load (404 / network / blocked) · ' + ms + 'ms');
+    var cbs = avatarCbs; avatarCbs = [];
+    cbs.forEach(function (f) { try { f(); } catch (e) {} });
   };
 
   document.head.appendChild(s);
-})();
+}
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "56ca7a97f8a64cfe87e4df87b509cdbe"}'></script>
