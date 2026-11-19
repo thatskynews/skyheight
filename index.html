@@ -307,6 +307,10 @@ a.btn{text-decoration:none}
 @media (prefers-reduced-motion:reduce){.avatar-opt.skeleton::after{animation:none;display:none}}
 .avatar-grid.failed .avatar-opt.skeleton::after{animation:none;display:none}
 .avatar-grid.failed .avatar-opt.skeleton{background:color-mix(in srgb,var(--on-surface) 7%,var(--surface-container))}
+@media (min-width:600px){
+  .avatar-grid{grid-template-columns:repeat(auto-fill,72px);justify-content:center;gap:14px;margin-top:16px}
+  .avatar-opt .avatar-emoji{font-size:22px}
+}
 .seg{
   position:relative;
   display:flex;
