@@ -40,8 +40,8 @@
 SkyExp.define({
   id: 'sky-exp',
   api: 1,
-  version: '1.1.0',
-  build: 2,
+  version: '1.2.0',
+  build: 3,
   date: '2026-11-22',
 
   /* ============================== 样式 ============================== */
@@ -59,18 +59,27 @@ html[data-fx="liquid"].fx-lens .ibtn,html[data-fx="liquid"].fx-lens .top-avatar{
 html[data-ctrl="pill"] :is(.ibtn,.top-avatar,.fab,.btn,.dev-btn,.seg,.seg button,.seg-thumb,.avatar-btn){border-radius:999px!important}
 #fx-defs{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
 .exp-ver{margin:22px 0 4px;text-align:center;font-size:12px;color:var(--on-surface-variant);opacity:.7;letter-spacing:.3px}
-/* ---- 按钮效果：液态弹性（边缘光 + 按压弹簧 + 高光跟手） ---- */
-html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab){--lg-p:0;--lg-x:50%;--lg-y:50%;--lg-r:72px;-webkit-tap-highlight-color:transparent}
-html[data-btnfx="liquid"] :is(.btn,.dev-btn){position:relative}
-html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab)::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
-  background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(255,255,255,0) 38%,rgba(255,255,255,0) 62%,rgba(255,255,255,.7));
-  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
-  opacity:calc(.55 + .45 * min(var(--lg-p), 1))}
+/* ---- 按钮效果：液态弹性（参数取自 液态玻璃-按钮组：折射12/-24、模糊2、饱和1.5、边缘高光、按压光0.15+0.08、阴影24/0.1） ---- */
+html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab){isolation:isolate;--lg-p:0;--lg-x:50%;--lg-y:50%;--lg-r:72px;-webkit-tap-highlight-color:transparent;
+  -webkit-backdrop-filter:saturate(1.5) blur(2px) var(--lg-lens,blur(0px));backdrop-filter:saturate(1.5) blur(2px) var(--lg-lens,blur(0px))}
+html[data-btnfx="liquid"] :is(.btn,.dev-btn){position:relative;box-shadow:0 4px 24px rgba(0,0,0,.1)}
+html[data-btnfx="liquid"] .btn.filled,html[data-btnfx="liquid"] .fab{background:color-mix(in srgb,var(--primary) 75%,transparent)}
+html[data-btnfx="liquid"] .btn.danger{background:color-mix(in srgb,#BA1A1A 75%,transparent)}
+html[data-btnfx="liquid"][data-theme="dusk"] .btn.danger{background:color-mix(in srgb,#9E3A31 75%,transparent)}
+html[data-btnfx="liquid"][data-theme="dark"] .btn.danger{background:color-mix(in srgb,#93000A 75%,transparent)}
+html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab)::before,html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab)::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;mix-blend-mode:plus-lighter;opacity:0}
+html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab).lg-r::before{opacity:1;background:#fff;-webkit-mask:var(--lg-rim) center/100% 100% no-repeat;mask:var(--lg-rim) center/100% 100% no-repeat}
+html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab).lg-on::after{opacity:1;
+  background:
+   radial-gradient(circle var(--lg-r) at var(--lg-x) var(--lg-y),
+     rgba(255,255,255,calc(.15 * var(--lg-p))) 0%,rgba(255,255,255,calc(.14355 * var(--lg-p))) 12.5%,rgba(255,255,255,calc(.1266 * var(--lg-p))) 25%,
+     rgba(255,255,255,calc(.1026 * var(--lg-p))) 37.5%,rgba(255,255,255,calc(.075 * var(--lg-p))) 50%,rgba(255,255,255,calc(.0474 * var(--lg-p))) 62.5%,
+     rgba(255,255,255,calc(.0234 * var(--lg-p))) 75%,rgba(255,255,255,calc(.00645 * var(--lg-p))) 87.5%,rgba(255,255,255,0) 100%),
+   linear-gradient(rgba(255,255,255,calc(.08 * var(--lg-p))),rgba(255,255,255,calc(.08 * var(--lg-p))))}
 html[data-btnfx="liquid"] :is(.btn,.dev-btn):active{transform:none;filter:none}
 html[data-btnfx="liquid"] .fab:active{transform:translateX(-50%)}
-html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab).lg-on{transition:none!important;
-  background-image:radial-gradient(circle var(--lg-r) at var(--lg-x) var(--lg-y),rgba(255,255,255,calc(.24 * var(--lg-p))),rgba(255,255,255,0));
-  filter:drop-shadow(0 6px 14px rgba(0,0,0,calc(.22 * var(--lg-p))))}
+html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab).lg-on{transition:none!important}
+#lg-defs{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
 `,
 
   /* ============================== 文案 ============================== */
@@ -82,6 +91,7 @@ html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab).lg-on{transition:none!importan
       ctrlRound: '圆角UI控件', ctrlPill: '胶囊UI控件',
       expModVer: '实验性功能模块 v{v}',
       L_fxSet: '界面效果 → {v}', L_ctrlSet: '控件效果 → {v}', L_btnFxSet: '按钮效果 → {v}',
+      L_btnFxLens: '液态按钮：{n} 种尺寸的光学贴图已生成', L_btnFxNoLens: '当前环境不支持折射滤镜，按钮仅保留边缘光/弹性/按压光',
       L_fxLens: '液态玻璃：{n} 个控件滤镜已生成',
       L_fxNoLens: '当前环境不支持折射滤镜，已降级为磨砂'
     },
@@ -92,6 +102,7 @@ html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab).lg-on{transition:none!importan
       ctrlRound: 'Rounded controls', ctrlPill: 'Pill controls',
       expModVer: 'Experimental module v{v}',
       L_fxSet: 'UI effect → {v}', L_ctrlSet: 'Control style → {v}', L_btnFxSet: 'Button effect → {v}',
+      L_btnFxLens: 'Liquid buttons: {n} optical maps built', L_btnFxNoLens: 'Refraction filter unsupported here; buttons keep rim light, spring and press glow',
       L_fxLens: 'Liquid glass: {n} control filters built',
       L_fxNoLens: 'Refraction filter unsupported here, fell back to frosted'
     }
@@ -213,19 +224,132 @@ html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab).lg-on{transition:none!importan
 
 
     /* ===================== 按钮效果：液态弹性 =====================
-     * 来源：液态玻璃·按钮组（画心人 / 群友源码）的轻量改写，纯 CSS + JS，不用 WebGL。
-     *  - 边缘光：CSS 里的 ::before 描边（斜 135° 两端高光），按下时变亮
-     *  - 弹性：按压放大 + 拖动拉伸/位移，松手用欠阻尼弹簧回弹（k=300，阻尼比 0.5，和原版一致）
-     *  - 高光跟手：按下后手指位置有一团白色柔光，半径 = 按钮短边 × 1.5
-     *  - 点中后的功能：只做视觉，不拦截事件，按钮原有的 click 逻辑照常触发（取消/确定/保存等）
+     * 参数全部取自「液态玻璃-按钮组」源码（画心人 / 群友源码）：
+     *  - 折射：边缘 12px 内、circleMap 曲线、最大偏移 24px（refractionHeight=12, refractionAmount=-24）
+     *  - 模糊 2、饱和度 1.5；填充/危险按钮的着色 0.75（tint）
+     *  - 边缘高光：Default 模式，角度 45°，宽 0.5dp，强度 = |边缘法线·光向|（用 canvas 按原 shader 逐像素算出，加色混合）
+     *  - 按压：放大 4/48、拖动位移 tanh(0.05)、沿拖动方向拉伸；弹簧 spring(阻尼比0.5, k=300)，松手立刻回弹
+     *  - 按压光：整钮加白 0.08×p + 手指处径向光 0.15×p（半径 = 短边×1.5，smoothstep 衰减），加色混合
+     *  - 阴影：半径 24、透明度 0.1、下移 4
+     * 说明：折射依赖 backdrop-filter:url()，仅 Chromium 生效；其余浏览器只有模糊/饱和度，其他效果照常。
+     * 只做视觉，不拦截事件，按钮原有的 click 逻辑照常触发。
      */
     var K_BTN = 'sky-height-btnfx';
     var btnPref = host.lsGet(K_BTN) === 'liquid' ? 'liquid' : 'off';
     var BTN_SEL = '.btn,.dev-btn,.fab';
-    var OM = Math.sqrt(300), ZE = 0.5, OD = OM * Math.sqrt(1 - ZE * ZE);
+    var OM = Math.sqrt(300), ZE = 0.5, OD = OM * Math.sqrt(1 - ZE * ZE), R_PRESS = 4 / 48;
     var reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     var bAct = [], bRaf = 0, bLast = 0, bDown = null;
+    var lgDefs = null, lgRim = {}, lgLens = {}, lgObs = null, lgMO = null, lgScanT = 0, lgKeys = {};
 
+    /* ---- 圆角矩形 SDF 与梯度（与源码 shader 同式） ---- */
+    function sdRR(px, py, hx, hy, r) {
+      var qx = Math.abs(px) - hx + r, qy = Math.abs(py) - hy + r;
+      return Math.sqrt(Math.pow(Math.max(qx, 0), 2) + Math.pow(Math.max(qy, 0), 2)) + Math.min(Math.max(qx, qy), 0) - r;
+    }
+    function gradRR(px, py, hx, hy, gr) {
+      var qx = Math.abs(px) - hx + gr, qy = Math.abs(py) - hy + gr, sx = px < 0 ? -1 : 1, sy = py < 0 ? -1 : 1;
+      if (Math.max(qx, qy) > 0) {
+        var ox = Math.max(qx, 0), oy = Math.max(qy, 0), l = Math.sqrt(ox * ox + oy * oy) || 1;
+        return [ox / l * sx, oy / l * sy];
+      }
+      return qx > qy ? [sx, 0] : [0, sy];
+    }
+    /* 折射位移图：d = circleMap(1 - 深度/12) × (-24)，偏移 = d × 外法线；feDisplacementMap scale=48 */
+    function lgLensMap(w, h, r) {
+      var sc = Math.min(2, window.devicePixelRatio || 1), cw = Math.max(1, Math.round(w * sc)), ch = Math.max(1, Math.round(h * sc));
+      var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+      var cx = cv.getContext('2d'), im = cx.createImageData(cw, ch), gr = Math.min(r * 1.5, Math.min(w, h) / 2);
+      for (var y = 0; y < ch; y++) for (var x = 0; x < cw; x++) {
+        var px = (x + .5) / sc - w / 2, py = (y + .5) / sc - h / 2, sd = sdRR(px, py, w / 2, h / 2, r), ox = 0, oy = 0;
+        if (sd < 0 && -sd < 12) {
+          var t = 1 - (-sd) / 12, d = (1 - Math.sqrt(Math.max(0, 1 - t * t))) * -24, g = gradRR(px, py, w / 2, h / 2, gr);
+          ox = d * g[0]; oy = d * g[1];
+        }
+        var i = (y * cw + x) * 4;
+        im.data[i] = Math.max(0, Math.min(255, 127.5 + ox / 48 * 255)); im.data[i + 1] = Math.max(0, Math.min(255, 127.5 + oy / 48 * 255));
+        im.data[i + 2] = 128; im.data[i + 3] = 255;
+      }
+      cx.putImageData(im, 0, 0);
+      return cv.toDataURL('image/png');
+    }
+    /* 边缘高光图：宽 ceil(0.5dpr)×2 的描边、σ=0.25dpr 三点高斯、裁掉外半边、强度 |法线·(cos45°,sin45°)| */
+    function lgRimMap(w, h, r, dpr) {
+      var cw = Math.max(1, Math.round(w * dpr)), ch = Math.max(1, Math.round(h * dpr)), rd = r * dpr;
+      var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+      var cx = cv.getContext('2d'), im = cx.createImageData(cw, ch), hx = cw / 2, hy = ch / 2;
+      var half = Math.ceil(0.5 * dpr), sigma = Math.max(0.25 * dpr, 0.1), gr = Math.min(rd * 1.5, Math.min(hx, hy)), k = Math.SQRT1_2;
+      for (var y = 0; y < ch; y++) for (var x = 0; x < cw; x++) {
+        var px = x + .5 - hx, py = y + .5 - hy, sd = sdRR(px, py, hx, hy, rd);
+        if (sd > 0 || sd < -half - sigma) continue;
+        var m = 0, ws = 0;
+        for (var j = -1; j <= 1; j++) {
+          var off = j * sigma, wt = Math.exp(-0.5 * off * off / (sigma * sigma));
+          m += (Math.abs(sd - off) < half ? 1 : 0) * wt; ws += wt;
+        }
+        m = m / ws * 0.5;
+        if (m <= 0) continue;
+        var g = gradRR(px, py, hx, hy, gr), a = Math.abs(g[0] * k + g[1] * k) * m, i = (y * cw + x) * 4;
+        im.data[i] = 255; im.data[i + 1] = 255; im.data[i + 2] = 255; im.data[i + 3] = Math.round(a * 255);
+      }
+      cx.putImageData(im, 0, 0);
+      return cv.toDataURL('image/png');
+    }
+    function lgDefsEl() {
+      if (lgDefs) return lgDefs;
+      var d = document.createElementNS(NS, 'svg');
+      d.setAttribute('id', 'lg-defs'); d.setAttribute('aria-hidden', 'true');
+      lgDefs = document.createElementNS(NS, 'defs'); d.appendChild(lgDefs); document.body.appendChild(d);
+      return lgDefs;
+    }
+    function lgFilter(key, w, h, r) {
+      var id = 'lgl-' + key.replace(/[^0-9a-z]/gi, '_');
+      if (lgLens[key]) return id;
+      var f = document.createElementNS(NS, 'filter');
+      f.setAttribute('id', id); f.setAttribute('x', '0'); f.setAttribute('y', '0'); f.setAttribute('width', w); f.setAttribute('height', h);
+      f.setAttribute('filterUnits', 'userSpaceOnUse'); f.setAttribute('primitiveUnits', 'userSpaceOnUse'); f.setAttribute('color-interpolation-filters', 'sRGB');
+      var fi = document.createElementNS(NS, 'feImage'), url = lgLensMap(w, h, r);
+      fi.setAttribute('x', '0'); fi.setAttribute('y', '0'); fi.setAttribute('width', w); fi.setAttribute('height', h);
+      fi.setAttribute('preserveAspectRatio', 'none'); fi.setAttribute('result', 'map');
+      fi.setAttributeNS('http://www.w3.org/1999/xlink', 'href', url); fi.setAttribute('href', url);
+      var dm = document.createElementNS(NS, 'feDisplacementMap');
+      dm.setAttribute('in', 'SourceGraphic'); dm.setAttribute('in2', 'map'); dm.setAttribute('scale', '48');
+      dm.setAttribute('xChannelSelector', 'R'); dm.setAttribute('yChannelSelector', 'G');
+      f.appendChild(fi); f.appendChild(dm); lgDefsEl().appendChild(f);
+      lgLens[key] = id; return id;
+    }
+    function lgPrep(el) {
+      var w = el.offsetWidth, h = el.offsetHeight;
+      if (!w || !h) return;
+      var r = Math.min(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0, w / 2, h / 2);
+      var dpr = Math.min(3, window.devicePixelRatio || 1), key = w + 'x' + h + 'x' + r.toFixed(1) + 'x' + dpr;
+      if (el.__lgKey === key) return;
+      el.__lgKey = key; lgKeys[key] = 1;
+      if (!lgRim[key]) lgRim[key] = lgRimMap(w, h, r, dpr);
+      el.style.setProperty('--lg-rim', 'url("' + lgRim[key] + '")'); el.classList.add('lg-r');
+      if (lensOK) el.style.setProperty('--lg-lens', 'url(#' + lgFilter(key, w, h, r) + ')');
+    }
+    function lgScan() {
+      document.querySelectorAll(BTN_SEL).forEach(function (el) {
+        if (lgObs) { if (!el.__lgObs) { el.__lgObs = 1; lgObs.observe(el); } } else lgPrep(el);
+      });
+    }
+    function lgRefresh() {
+      if (btnPref !== 'liquid') return;
+      document.querySelectorAll(BTN_SEL).forEach(function (el) { el.__lgKey = null; lgPrep(el); });
+    }
+    function lgOff() {
+      if (lgObs) { lgObs.disconnect(); lgObs = null; }
+      if (lgMO) { lgMO.disconnect(); lgMO = null; }
+      document.querySelectorAll(BTN_SEL).forEach(function (el) {
+        el.__lgObs = 0; el.__lgKey = null; el.classList.remove('lg-r');
+        el.style.removeProperty('--lg-rim'); el.style.removeProperty('--lg-lens');
+      });
+      var d = $('lg-defs'); if (d && d.parentNode) d.parentNode.removeChild(d);
+      lgDefs = null; lgRim = {}; lgLens = {}; lgKeys = {};
+    }
+
+    /* ---- 弹簧：spring(0.5, 300)，解析解与源码 springStepUnderdamped 一致 ---- */
     function spr(t) { return { x: 0, v: 0, t: t || 0 }; }
     function sprStep(s, dt) {
       var x0 = s.x - s.t, b = (s.v + ZE * OM * x0) / OD;
@@ -235,28 +359,25 @@ html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab).lg-on{transition:none!importan
       s.x = s.t + off;
     }
     function bFind(el) { for (var i = 0; i < bAct.length; i++) if (bAct[i].el === el) return bAct[i]; return null; }
-    function bPos(s, e) {
-      var r = s.el.getBoundingClientRect();
-      var k = r.width / (s.w || 1) || 1;
-      s.px = (e.clientX - (r.left + r.width / 2)) / k + s.w / 2;
-      s.py = (e.clientY - (r.top + r.height / 2)) / k + s.h / 2;
+    function bLocal(s, e) {
+      var r = s.el.getBoundingClientRect(), k = r.width / (s.w || 1) || 1;
+      return [(e.clientX - (r.left + r.width / 2)) / k + s.w / 2, (e.clientY - (r.top + r.height / 2)) / k + s.h / 2];
     }
     function bRender(s) {
       var el = s.el, w = s.w, h = s.h, minD = Math.min(w, h), maxD = Math.max(w, h);
       var p = s.p.x, dx = s.dx.x, dy = s.dy.x;
       var tx = minD * Math.tanh(0.05 * dx / minD), ty = minD * Math.tanh(0.05 * dy / minD);
       var ang = Math.atan2(dy, dx);
-      var rx = Math.min(4 / 48, 8 / w), ry = Math.min(4 / 48, 4 / h);
-      var sx = 1 + rx * p + (4 / 48) * Math.abs(Math.cos(ang) * dx / maxD) * Math.min(w / h, 1);
-      var sy = 1 + ry * p + (4 / 48) * Math.abs(Math.sin(ang) * dy / maxD) * Math.min(h / w, 1);
-      sx = Math.max(0.9, Math.min(1.2, sx)); sy = Math.max(0.9, Math.min(1.2, sy));
+      var sx = 1 + R_PRESS * p + R_PRESS * Math.abs(Math.cos(ang) * dx / maxD) * Math.min(w / h, 1);
+      var sy = 1 + R_PRESS * p + R_PRESS * Math.abs(Math.sin(ang) * dy / maxD) * Math.min(h / w, 1);
+      sx = Math.max(0.5, Math.min(1.6, sx)); sy = Math.max(0.5, Math.min(1.6, sy));
       if (!reduceMotion) {
         if (s.fab) el.style.transform = 'translateX(-50%) translate(' + tx + 'px,' + ty + 'px) scale(' + sx + ',' + sy + ')';
         else { el.style.translate = tx + 'px ' + ty + 'px'; el.style.scale = sx + ' ' + sy; }
       }
-      el.style.setProperty('--lg-p', Math.max(0, Math.min(1.4, p)).toFixed(3));
-      el.style.setProperty('--lg-x', s.px.toFixed(1) + 'px');
-      el.style.setProperty('--lg-y', s.py.toFixed(1) + 'px');
+      el.style.setProperty('--lg-p', Math.max(0, p).toFixed(3));
+      el.style.setProperty('--lg-x', Math.max(0, Math.min(w, s.x0 + dx)).toFixed(1) + 'px');
+      el.style.setProperty('--lg-y', Math.max(0, Math.min(h, s.y0 + dy)).toFixed(1) + 'px');
       el.style.setProperty('--lg-r', (minD * 1.5).toFixed(0) + 'px');
     }
     function bClear(s) {
@@ -266,56 +387,59 @@ html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab).lg-on{transition:none!importan
       ['--lg-p', '--lg-x', '--lg-y', '--lg-r'].forEach(function (k) { el.style.removeProperty(k); });
     }
     function bTick(now) {
-      var dt = Math.min(1 / 30, Math.max(0.001, (now - bLast) / 1000)); bLast = now;
+      var dt = Math.min(0.05, Math.max(0.001, (now - bLast) / 1000)); bLast = now;
       for (var i = bAct.length - 1; i >= 0; i--) {
         var s = bAct[i];
         sprStep(s.p, dt); sprStep(s.dx, dt); sprStep(s.dy, dt);
         bRender(s);
-        var rest = Math.abs(s.p.x - s.p.t) < 0.002 && Math.abs(s.p.v) < 0.02 &&
-          Math.abs(s.dx.x - s.dx.t) < 0.05 && Math.abs(s.dx.v) < 0.5 &&
-          Math.abs(s.dy.x - s.dy.t) < 0.05 && Math.abs(s.dy.v) < 0.5;
+        var rest = Math.abs(s.p.x - s.p.t) < 5e-4 && Math.abs(s.p.v) < 5e-4 &&
+          Math.abs(s.dx.x - s.dx.t) < 0.05 && Math.abs(s.dx.v) < 0.5 && Math.abs(s.dy.x - s.dy.t) < 0.05 && Math.abs(s.dy.v) < 0.5;
         if (rest && s.p.t === 0 && bDown !== s) { bClear(s); bAct.splice(i, 1); }
       }
       bRaf = bAct.length ? requestAnimationFrame(bTick) : 0;
     }
     function bKick() { if (!bRaf) { bLast = performance.now(); bRaf = requestAnimationFrame(bTick); } }
-    function bRelease(s) {
-      if (bDown === s) bDown = null;
-      s.p.t = 0; s.dx.t = 0; s.dy.t = 0; bKick();
-    }
+    function bRelease(s) { if (bDown === s) bDown = null; s.p.t = 0; s.dx.t = 0; s.dy.t = 0; bKick(); }
     document.addEventListener('pointerdown', function (e) {
       if (btnPref !== 'liquid' || (e.pointerType === 'mouse' && e.button !== 0)) return;
       var el = e.target && e.target.closest ? e.target.closest(BTN_SEL) : null;
       if (!el || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
       var s = bFind(el);
-      if (!s) {
-        s = { el: el, w: el.offsetWidth || 1, h: el.offsetHeight || 1, fab: el.classList.contains('fab'),
-              p: spr(0), dx: spr(0), dy: spr(0), px: 0, py: 0, sx0: 0, sy0: 0, t0: 0 };
-        bAct.push(s);
-      }
+      if (!s) { s = { el: el, w: 1, h: 1, fab: el.classList.contains('fab'), p: spr(0), dx: spr(0), dy: spr(0), x0: 0, y0: 0, sx0: 0, sy0: 0 }; bAct.push(s); }
       if (bDown && bDown !== s) bRelease(bDown);
-      bDown = s; s.t0 = performance.now(); s.sx0 = e.clientX; s.sy0 = e.clientY;
-      s.w = el.offsetWidth || 1; s.h = el.offsetHeight || 1;
+      bDown = s; s.w = el.offsetWidth || 1; s.h = el.offsetHeight || 1;
+      var l = bLocal(s, e); s.x0 = l[0]; s.y0 = l[1]; s.sx0 = e.clientX; s.sy0 = e.clientY;
       s.p.t = 1; s.dx.t = 0; s.dy.t = 0;
-      bPos(s, e); el.classList.add('lg-on'); bKick();
+      el.classList.add('lg-on'); bKick();
     }, true);
     document.addEventListener('pointermove', function (e) {
       var s = bDown; if (!s) return;
-      s.dx.t = e.clientX - s.sx0; s.dy.t = e.clientY - s.sy0; bPos(s, e);
+      s.dx.t = e.clientX - s.sx0; s.dy.t = e.clientY - s.sy0;
     }, true);
-    function bUp() {
-      var s = bDown; if (!s) return;
-      var wait = Math.max(0, 90 - (performance.now() - s.t0));   /* 点得太快也要让按下的动画能看到 */
-      if (wait) setTimeout(function () { bRelease(s); }, wait); else bRelease(s);
-    }
+    function bUp() { if (bDown) bRelease(bDown); }
     document.addEventListener('pointerup', bUp, true);
     document.addEventListener('pointercancel', bUp, true);
 
-    function applyBtn() {
-      if (btnPref === 'liquid') host.docEl.setAttribute('data-btnfx', 'liquid');
-      else {
+    function applyBtn(silent) {
+      if (btnPref === 'liquid') {
+        host.docEl.setAttribute('data-btnfx', 'liquid');
+        if (window.ResizeObserver && !lgObs) lgObs = new ResizeObserver(function (es) { es.forEach(function (e) { lgPrep(e.target); }); });
+        if (window.MutationObserver && !lgMO && document.body) {
+          lgMO = new MutationObserver(function () {
+            if (lgScanT) return;
+            lgScanT = requestAnimationFrame(function () { lgScanT = 0; lgScan(); });
+          });
+          lgMO.observe(document.body, { childList: true, subtree: true });
+        }
+        lgScan();
+        if (!silent) {
+          if (lensOK) host.dlog('info', 'fx', 'btnFxLens', { n: Object.keys(lgKeys).length });
+          else host.dlog('warn', 'fx', 'btnFxNoLens');
+        }
+      } else {
         host.docEl.removeAttribute('data-btnfx');
         bAct.forEach(bClear); bAct = []; bDown = null;
+        lgOff();
       }
     }
     function setBtn(v) {
@@ -325,7 +449,9 @@ html[data-btnfx="liquid"] :is(.btn,.dev-btn,.fab).lg-on{transition:none!importan
       applyBtn(); host.renderSettings();
     }
     M._setBtn = setBtn;
-    applyBtn();
+    var _sc0 = M._setCtrl; M._setCtrl = function (v) { _sc0(v); setTimeout(lgRefresh, 0); };
+    window.addEventListener('resize', function () { setTimeout(lgRefresh, 80); });
+    applyBtn(true);
 
     applyFx(true);
   },
