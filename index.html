@@ -14,6 +14,9 @@
     var tp = localStorage.getItem('sky-height-theme') || 'dusk';
     if (['light', 'dusk', 'dark'].indexOf(tp) < 0) tp = 'dusk';
     d.setAttribute('data-theme', tp);
+    var fx = localStorage.getItem('sky-height-fx'); if (fx === 'liquid' || fx === 'frost') d.setAttribute('data-fx', fx);
+    if (localStorage.getItem('sky-height-ctrl') === 'pill') d.setAttribute('data-ctrl', 'pill');
+    if (d.getAttribute('data-fx') || d.getAttribute('data-ctrl') || localStorage.getItem('sky-height-exp-active') === '1') window.__expBoot = 1;
     var lg = localStorage.getItem('sky-height-lang');
     var tw = false;
     if (lg === 'tw') { lg = 'zh'; tw = true; }
@@ -106,13 +109,13 @@ body.no-scroll{overflow:hidden}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 svg{display:block;flex:none}
 [hidden]{display:none!important}
-.floating-top{position:fixed;top:0;left:0;right:0;z-index:20;
+.floating-top{--nav-icon:var(--on-surface);position:fixed;top:0;left:0;right:0;z-index:20;
   display:flex;align-items:center;justify-content:space-between;
   padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
   pointer-events:none;
   transition:background-color .25s}
 .top-avatar{pointer-events:auto;position:relative;z-index:1;width:44px;height:44px;border-radius:50%;
-  background:var(--surface);color:var(--on-surface-variant);
+  background:var(--surface);color:var(--nav-icon);
   display:grid;place-items:center;box-shadow:0 4px 16px rgba(0,0,0,0.12);
   overflow:hidden;padding:0;
   transition:background-color .2s, transform .2s}
@@ -124,7 +127,7 @@ svg{display:block;flex:none}
 .actions{display:flex;align-items:center;gap:8px;pointer-events:auto;position:relative;z-index:1}
 .ibtn{position:relative;overflow:hidden;width:44px;height:44px;border-radius:var(--radius-icon);display:grid;place-items:center;
   background:var(--surface);
-  color:var(--on-surface-variant);
+  color:var(--nav-icon);
   box-shadow:0 4px 16px rgba(0,0,0,0.12);
   transition:background-color 360ms cubic-bezier(.2,0,0,1),transform 360ms cubic-bezier(.2,0,0,1)}
 .ibtn::after{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--surface-high);opacity:0;pointer-events:none;z-index:0;
@@ -215,8 +218,7 @@ svg{display:block;flex:none}
   display:flex;align-items:center;justify-content:center;gap:8px;
   width:280px;max-width:80%;min-height:52px;
   border-radius:var(--radius-btn);font-weight:500;font-size:15px;
-  background:color-mix(in srgb, var(--primary) 90%, transparent);
-  backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);
+  background:var(--primary);
   color:var(--on-primary);box-shadow:var(--shadow);transition:opacity .25s,transform .25s}
 .fab:active{transform:translateX(-50%) scale(.96)}
 .fab.hidden{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(10px)}
@@ -267,6 +269,10 @@ svg{display:block;flex:none}
 [data-theme="dusk"] .btn.danger{background:#9E3A31;color:#FFFFFF}
 [data-theme="dark"] .btn.danger{background:#93000A;color:#FFDAD6}
 .btn:disabled{opacity:.38;pointer-events:none}
+.cd-wrap{position:relative;display:inline-block}
+.cd-num{position:absolute;left:100%;top:0;white-space:pre;font-variant-numeric:tabular-nums}
+.btn,.ibtn,.top-avatar{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+a.btn,.btn img,.top-avatar img{-webkit-user-drag:none}
 a.btn{text-decoration:none}
 .sec{font-size:13px;font-weight:500;color:var(--primary);margin:20px 4px 8px;letter-spacing:.2px}
 [data-theme="dusk"] .sec{color:var(--accent)}
@@ -381,6 +387,7 @@ a.btn{text-decoration:none}
 .more-row+.more-row::before{content:"";position:absolute;top:0;left:16px;right:16px;height:1px;z-index:2;
   background:color-mix(in srgb, var(--outline) 22%, transparent);pointer-events:none}
 .more-icon{flex:none;width:28px;height:28px;display:grid;place-items:center;color:var(--primary)}
+#more-donate .more-icon svg{transform:translateX(1px)}
 [data-theme="dusk"] .more-icon{color:var(--accent)}
 [data-theme="dark"] .more-icon{color:var(--primary)}
 .more-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -658,7 +665,17 @@ a.btn{text-decoration:none}
     font-size: 88px;
   }
 }
+
+.exp-state{display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:120px;padding:24px 0}
+.exp-fail{margin:0 8px 16px;text-align:center;font-size:14px;line-height:1.7;color:var(--on-surface-variant)}
+.exp-spin{width:24px;height:24px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--on-surface) 18%,transparent);border-top-color:var(--primary);animation:expSpin .7s linear infinite}
+[data-theme="dusk"] .exp-spin,[data-theme="dusk"] .exp-state .btn.loading::after{border-top-color:var(--accent)}
+.exp-state .btn{position:relative;min-width:120px}
+.exp-state .btn.loading{color:transparent!important;pointer-events:none}
+.exp-state .btn.loading::after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:2px solid color-mix(in srgb,var(--on-surface) 18%,transparent);border-top-color:var(--primary);animation:expSpin .7s linear infinite}
+@keyframes expSpin{to{transform:rotate(360deg)}}
 </style>
+<script>(function(){try{if(!window.__expBoot)return;var c=localStorage.getItem('sky-height-exp-css');if(!c)return;var s=document.createElement('style');s.id='exp-style';s.textContent=c;document.head.appendChild(s);}catch(e){}})();</script>
 </head>
 <body>
 <div class="floating-top">
@@ -839,6 +856,11 @@ a.btn{text-decoration:none}
         <span class="more-main"><span class="more-title" data-i="moreDonateTitle"></span></span>
         <svg class="more-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
       </button>
+      <button class="more-row" id="more-exp" type="button">
+        <span class="more-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" width="20" height="20" fill="currentColor" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M1.25 7a5.75 5.75 0 1 1 11.5 0a5.75 5.75 0 0 1-11.5 0M7 0a7 7 0 1 0 0 14A7 7 0 0 0 7 0M3.22 8.133a1.1 1.1 0 0 0-.42.093a.625.625 0 1 1-.544-1.125a2.4 2.4 0 0 1 .926-.217c.381-.012.848.07 1.263.39s.614.75.7 1.122c.085.365.072.715.026.95a1.1 1.1 0 0 0 .016.43c.04.174.12.316.245.413a.7.7 0 0 0 .463.131a1.1 1.1 0 0 0 .419-.093a.625.625 0 0 1 .544 1.125c-.216.104-.55.206-.925.218a1.95 1.95 0 0 1-1.264-.39a1.95 1.95 0 0 1-.7-1.123a2.4 2.4 0 0 1-.025-.95a1.1 1.1 0 0 0-.017-.429c-.04-.174-.119-.317-.245-.414s-.283-.136-.463-.131m5.613-5.466c-.71 0-1.34.342-1.734.868A1.75 1.75 0 1 0 7.73 6.7a2.167 2.167 0 1 0 1.102-4.032M2.5 5.25a.75.75 0 1 1 1.5 0a.75.75 0 0 1-1.5 0m5 3.5a.75.75 0 1 1 1.5 0a.75.75 0 0 1-1.5 0m2 1a.75.75 0 1 1 1.5 0a.75.75 0 0 1-1.5 0" clip-rule="evenodd"/></svg></span>
+        <span class="more-main"><span class="more-title" data-i="moreExpTitle"></span></span>
+        <svg class="more-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </button>
       <button class="more-row" id="more-share" type="button">
         <span class="more-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4M12 2v13"/></svg></span>
         <span class="more-main"><span class="more-title" data-i="moreShareTitle"></span><span class="more-sub" data-i="moreShareSub"></span></span>
@@ -943,7 +965,14 @@ a.btn{text-decoration:none}
     <button class="btn outlined" id="dn-cancel" type="button" data-i="cancel"></button>
   </div>
 </div>
-<div class="sheet" id="sheet-changelog" role="dialog" aria-modal="true">
+<div class="sheet" id="sheet-exp" role="dialog" aria-modal="true">
+  <div class="sheet-top" data-grab><i></i><h2 data-i="expTitle"></h2></div>
+  <div class="sheet-body">
+    <div class="exp-state" id="exp-state" style="display:none"></div>
+    <div id="exp-mount"></div>
+  </div>
+</div>
+<div class="sheet" id="sheet-changelog"<div class="sheet" id="sheet-changelog" role="dialog" aria-modal="true">
   <div class="sheet-top" data-grab><i></i><h2 data-i="changelogTitle"></h2></div>
   <div class="sheet-body"><div id="changelog-list"></div></div>
 </div>
@@ -1436,6 +1465,7 @@ var LIMITS = [0.5, 2.0, 3.5, 5.0, 6.5, 7.5, 8.5, 10.0, 11.5, 13.0];
     findQrRoi: findQrRoi, cropWithPad: cropWithPad, resizeNN: resizeNN, preprocessRGBA: preprocessRGBA, otsuThreshold: otsuThreshold };
   if (typeof document === 'undefined') return;
   var K_HIST = 'height-measure-history', K_LANG = 'sky-height-lang', K_THEME = 'sky-height-theme';
+  var K_EXP_ACK = 'sky-height-exp-ack';
   var K_NICK = 'sky-height-nickname', K_SIGN = 'sky-height-sign', K_AVATAR = 'sky-height-avatar';
   var HMAX = 200;
   var I18N = {
@@ -1493,19 +1523,21 @@ zh: {
   updateNow: '立即更新',
   updateIgnoreMsg: '30天后再次提醒',
   secMore: '更多',
-  moreVersionTitle: '版本信息', moreFeedbackTitle: '反馈邮件', moreChangelogTitle: '更新日志', moreWebTitle: '访问网页',
+  moreVersionTitle: '版本信息', moreFeedbackTitle: '反馈邮件', moreChangelogTitle: '更新日志', moreWebTitle: '查看网页',
   moreShareTitle: '分享 SkyHeight', moreShareSub: '下载 SkyHeight.apk', moreTermsTitle: '服务条款与隐私政策',
   changelogTitle: '更新日志', changelogEmpty: '暂无更新日志', latestVersion: '最新 {v} ({b})',
   aboutUpToDate: '已是最新版本', aboutCheckFailed: '检查失败，请稍后再试', updateChecking: '正在检查更新…',
   updateSizeUnknown: '未知', updateNoNotes: '无更新说明',
   termsTitle: '服务条款与隐私政策', legalUpdated: '最后更新/{d}',
   copied: '链接已复制', emailCopied: '邮箱地址已复制', copyFailed: '复制失败',
-  shareSheetTitle: '分享 SkyHeight', shareTip: '您要分享 SkyHeight 给朋友们吗？轻点下方复制即可分享下载链接。',
+  shareSheetTitle: '分享 SkyHeight', shareTip: '您要分享 SkyHeight 安卓应用给朋友们吗？轻点下方复制即可分享下载链接。',
   shareCopy: '复制', shareCopied: '下载链接已复制',
-  moreDonateTitle: '捐赠支持', dnTitle: '捐赠支持', dnBubble: '适合你！',
-  dnTip: '你要捐赠支持我们吗？SkyHeight 因你而感激不尽！谢谢你的喜欢！请轻点石像以捐赠我们。',
+  moreExpTitle: '实验性功能', expTitle: '实验性功能', expConfirmTitle: '实验性功能', expConfirmTip: '您要进入实验性功能吗？实验性功能将包含更多的可玩性效果以及不确定性。', expConfirmOk: '开启', expLoadFail: '加载失败，请检查你的网络连接', expRetry: '重试',
+  L_expOk: '实验性模块已加载 · {src} · v{v}', L_expBad: '实验性模块格式无效 · {src}', L_expApi: '实验性模块需要更新的应用版本 · {src} · api {v}', L_expRunErr: '实验性模块执行出错 · {src} · {m}', L_expNetFail: '实验性模块下载失败 · {m}', L_expNext: '实验性模块有新版本，将在下次启动生效', L_expRevFail: '实验性模块后台检查失败 · {m}', L_expSegErr: '实验性模块操作出错 · {m}', L_expIdbFail: 'IndexedDB 不可用，已退回 localStorage · {m}', L_expMigrate: '实验性模块缓存已迁移到 IndexedDB',
+  moreDonateTitle: '捐赠支持', dnTitle: '捐赠支持', dnBubble: '适合您！',
+  dnTip: '您要捐赠支持我们吗？SkyHeight 因您而感激不尽！谢谢您的喜欢！请轻点石像以捐赠我们。',
   dnOpening: '正在前往捐赠页面',
-  webSheetTitle: '访问网页', webTip: '您要前往 SkyHeight 网页官网吗？轻点下方复制即可打开网页链接。', webCopy: '复制并打开',
+  webSheetTitle: '查看网页', webTip: '您要前往 SkyHeight 网页官网吗？轻点下方即可打开网页链接。', webCopy: '打开',
   feedbackSheetTitle: '反馈邮件', feedbackTip: '您要给我们发送反馈邮件吗？轻点下方复制邮箱地址即可联系我们。如果可以请在本页点击版本信息 5 次触发调试日志并提交给我们。', feedbackCopy: '复制并打开',
   mailSubject: '光遇身高仪 反馈 v{v} ({b})',
   devLogTitle: '调试日志', devVersion: '版本', devBoot: '启动时间', devUptime: '运行时长',
@@ -1521,7 +1553,7 @@ zh: {
   L_vis: '页面可见性 → {s}', L_online: '网络已连接', L_offline: '网络已断开',
   L_jsErr: '脚本错误：{m} @ {src}', L_rejErr: '未处理的 Promise 异常：{m}',
   L_sheetOpen: '打开面板 {id}', L_sheetClose: '关闭面板 {id}', L_sheetDrag: '下拉关闭 {id}',
-  L_btnSettings: '点击设置按钮', L_btnHistory: '点击历史按钮（{n} 条记录）', L_btnHelp: '点击帮助按钮', L_btnAvatar: '点击顶部头像',
+  L_btnSettings: '点击设置按钮', L_btnHistory: '点击历史按钮（{n} 条记录）', L_btnHelp: '点击帮助按钮', L_btnAvatar: '点击顶部头像', L_btnExp: '点击实验性功能',
   L_langSet: '语言 → {v}', L_themeSet: '主题 → {v}',
   L_nameEdit: '修改昵称（{n} 字）', L_signEdit: '修改个性签名（{n} 字）',
   L_avBuiltin: '选择内置头像 #{i}', L_avShuffle: '随机更换头像 → #{i}', L_avUpload: '上传头像：{kb} KB · {w}×{h}',
@@ -1645,6 +1677,8 @@ zh: {
   copied: 'Link copied', emailCopied: 'Email copied', copyFailed: 'Copy failed',
   shareSheetTitle: 'Share SkyHeight', shareTip: 'Share SkyHeight with your friends? Tap Copy below to copy the download link.',
   shareCopy: 'Copy', shareCopied: 'Download link copied',
+  moreExpTitle: 'Experimental', expTitle: 'Experimental', expConfirmTitle: 'Experimental', expConfirmTip: 'Enter experimental features? Experimental features include more playful effects and some uncertainty.', expConfirmOk: 'Turn on', expLoadFail: 'Load failed. Please check your network connection.', expRetry: 'Retry',
+  L_expOk: 'Experimental module loaded · {src} · v{v}', L_expBad: 'Experimental module invalid · {src}', L_expApi: 'Experimental module needs a newer app · {src} · api {v}', L_expRunErr: 'Experimental module error · {src} · {m}', L_expNetFail: 'Experimental module download failed · {m}', L_expNext: 'New experimental module found, applies next launch', L_expRevFail: 'Experimental module background check failed · {m}', L_expSegErr: 'Experimental module action error · {m}', L_expIdbFail: 'IndexedDB unavailable, fell back to localStorage · {m}', L_expMigrate: 'Experimental module cache migrated to IndexedDB',
   moreDonateTitle: 'Donate', dnTitle: 'Donate', dnBubble: 'Just for you!',
   dnTip: 'Would you like to support us with a donation? SkyHeight is endlessly grateful to you! Thank you for liking it! Tap a statue to donate.',
   dnOpening: 'Opening the donation page',
@@ -1664,7 +1698,7 @@ zh: {
   L_vis: 'Visibility → {s}', L_online: 'Network online', L_offline: 'Network offline',
   L_jsErr: 'Script error: {m} @ {src}', L_rejErr: 'Unhandled promise rejection: {m}',
   L_sheetOpen: 'Open sheet {id}', L_sheetClose: 'Close sheet {id}', L_sheetDrag: 'Drag-to-close {id}',
-  L_btnSettings: 'Tap settings button', L_btnHistory: 'Tap history button ({n} entries)', L_btnHelp: 'Tap help button', L_btnAvatar: 'Tap top avatar',
+  L_btnSettings: 'Tap settings button', L_btnHistory: 'Tap history button ({n} entries)', L_btnHelp: 'Tap help button', L_btnAvatar: 'Tap top avatar', L_btnExp: 'Tap experimental features',
   L_langSet: 'Language → {v}', L_themeSet: 'Theme → {v}',
   L_nameEdit: 'Nickname edited ({n} chars)', L_signEdit: 'Signature edited ({n} chars)',
   L_avBuiltin: 'Picked built-in avatar #{i}', L_avShuffle: 'Shuffled avatar → #{i}', L_avUpload: 'Avatar uploaded: {kb} KB · {w}×{h}',
@@ -1807,7 +1841,7 @@ zh: {
   var ICON_OK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
   var ICON_ERR = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.1"/></svg>';
   var ICON_X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6 18 18M18 6 6 18"/></svg>';
-  var CURRENT_VER = '1.0.4', CURRENT_BUILD = '6597';
+  var CURRENT_VER = '1.0.5', CURRENT_BUILD = '6650';
   var WEB_URL = 'https://skyheight.pages.dev';
   var SHARE_URL = 'https://skyheight.pages.dev/SkyHeight.apk';
   var FEEDBACK_EMAIL = 'goskynews@outlook.com';
@@ -2014,7 +2048,17 @@ zh: {
   });
   var cdTimer = null, onConfirm = null, confirmKey = '';
   function stopCountdown() { if (cdTimer) { clearInterval(cdTimer); cdTimer = null; } onConfirm = null; }
-  function cdLabel(label, n) { return label + (lang === 'zh' ? '（' + n + '）' : ' (' + n + ')'); }
+  function setOk(ok, label, n) {
+    ok.textContent = '';
+    var w = document.createElement('span'); w.className = 'cd-wrap';
+    w.appendChild(document.createTextNode(label));
+    if (n > 0) {
+      var c = document.createElement('span'); c.className = 'cd-num';
+      c.textContent = lang === 'zh' ? '（' + n + '）' : ' (' + n + ')';
+      w.appendChild(c);
+    }
+    ok.appendChild(w);
+  }
   function askConfirm(titleKey, msgKey, okKey, cb, seconds) {
     stopCountdown();
     $('c-title').textContent = t(titleKey); $('c-msg').textContent = t(msgKey);
@@ -2022,17 +2066,17 @@ zh: {
     confirmKey = titleKey;
     if (left <= 0) {
       ok.disabled = false;
-      ok.textContent = label;
+      setOk(ok, label, 0);
     } else {
       ok.disabled = true;
-      ok.textContent = cdLabel(label, left);
+      setOk(ok, label, left);
     }
     onConfirm = cb;
     if (left > 0) {
       cdTimer = setInterval(function () {
         left--;
-        if (left <= 0) { clearInterval(cdTimer); cdTimer = null; ok.disabled = false; ok.textContent = label; }
-        else ok.textContent = cdLabel(label, left);
+        if (left <= 0) { clearInterval(cdTimer); cdTimer = null; ok.disabled = false; setOk(ok, label, 0); }
+        else setOk(ok, label, left);
       }, 1000);
     }
     dlog('action', 'confirm', 'confirmOpen', { k: '@' + titleKey, s: seconds || 0 });
@@ -2683,6 +2727,167 @@ function importAvatar(file) {
     var m = document.querySelector('meta[name="theme-color"]');
     if (m) m.setAttribute('content', getComputedStyle(docEl).getPropertyValue('--bg').trim());
   }
+
+  var EXP_URL = 'https://skyheight.pages.dev/exp.js';
+  var EXP_API = 1;
+  var K_EXP_CODE = 'sky-height-exp-code', K_EXP_CSS = 'sky-height-exp-css', K_EXP_ACTIVE = 'sky-height-exp-active';
+  var EXP = { mod: null, p: null };
+  var EXP_DB = 'sky-height-exp', EXP_STORE = 'kv', EXP_KEY = 'code';
+  function idbOpen() {
+    return new Promise(function (res, rej) {
+      if (!window.indexedDB) { rej(new Error('no indexedDB')); return; }
+      var r;
+      try { r = indexedDB.open(EXP_DB, 1); } catch (e) { rej(e); return; }
+      r.onupgradeneeded = function () { r.result.createObjectStore(EXP_STORE); };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error || new Error('idb open')); };
+      r.onblocked = function () { rej(new Error('idb blocked')); };
+    });
+  }
+  function idbOp(mode, fn) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction(EXP_STORE, mode), out;
+        try { out = fn(tx.objectStore(EXP_STORE)); } catch (e) { db.close(); rej(e); return; }
+        tx.oncomplete = function () { db.close(); res(out && 'result' in out ? out.result : undefined); };
+        tx.onerror = tx.onabort = function () { db.close(); rej(tx.error || new Error('idb tx')); };
+      });
+    });
+  }
+  async function expStoreGet() {
+    var v = null;
+    try { v = await idbOp('readonly', function (st) { return st.get(EXP_KEY); }); }
+    catch (e) { dlog('warn', 'exp', 'expIdbFail', { m: errText(e) }); }
+    if (typeof v === 'string' && v) return v;
+    var old = lsGet(K_EXP_CODE);
+    if (old) { if (await expStoreSet(old)) dlog('info', 'exp', 'expMigrate'); return old; }
+    return '';
+  }
+  async function expStoreSet(text) {
+    try {
+      await idbOp('readwrite', function (st) { return st.put(text, EXP_KEY); });
+      try { localStorage.removeItem(K_EXP_CODE); } catch (e) {}
+      return true;
+    } catch (e) {
+      dlog('warn', 'exp', 'expIdbFail', { m: errText(e) });
+      return lsSet(K_EXP_CODE, text);
+    }
+  }
+  var segEnhance = null;
+  function errText(e) { return String((e && e.message) || e || ''); }
+  var expBus = {};
+  function expOn(n, f) { (expBus[n] = expBus[n] || []).push(f); }
+  function expOff(n, f) { var a = expBus[n]; if (!a) return; var i = a.indexOf(f); if (i >= 0) a.splice(i, 1); }
+  function expEmit(n, d) {
+    (expBus[n] || []).slice().forEach(function (f) { try { f(d); } catch (_) {} });
+    try { document.dispatchEvent(new CustomEvent('sky:' + n, { detail: d })); } catch (_) {}
+  }
+  (function () {
+    var _os = openSheet, _cs = closeSheet, _sl = setLang, _st = setTheme;
+    openSheet = function (id, nh) { var r = _os.apply(this, arguments); expEmit('sheet-open', { id: id }); return r; };
+    closeSheet = function (id, fa) { var r = _cs.apply(this, arguments); expEmit('sheet-close', { id: id }); return r; };
+    setLang = function (l, p) { var r = _sl.apply(this, arguments); expEmit('lang', { lang: l }); return r; };
+    setTheme = function (v) { var r = _st.apply(this, arguments); expEmit('theme', { theme: v }); return r; };
+  })();
+  var expHost = {
+    api: EXP_API, caps: ['events', 'seg', 'sheet'], on: expOn, off: expOff, emit: expEmit, root: document.documentElement, $: $, t: t, dlog: dlog, lsGet: lsGet, lsSet: lsSet, toast: toast,
+    openSheet: openSheet, closeSheet: closeSheet, docEl: docEl,
+    lang: function () { return lang; }, isTw: function () { return tw; },
+    translate: function () { translateStatic(); twApply(); },
+    renderSettings: function () { renderSettings(); },
+    enhanceSeg: function (seg) { bindSegClick(seg); if (segEnhance) segEnhance(seg); },
+    setActive: function (on) { lsSet(K_EXP_ACTIVE, on ? '1' : '0'); }
+  };
+  function expLooksOk(text) {
+    if (typeof text !== 'string' || !/SkyExp\s*\.\s*define\s*\(/.test(text)) return false;
+    try { new Function('SkyExp', text); return true; } catch (e) { return false; }
+  }
+  function expRun(code, src) {
+    var got = null;
+    try { new Function('SkyExp', code)({ define: function (m) { got = m; } }); }
+    catch (e) { dlog('warn', 'exp', 'expRunErr', { src: src, m: errText(e) }); return false; }
+    if (!got || got.id !== 'sky-exp' || typeof got.init !== 'function') { dlog('warn', 'exp', 'expBad', { src: src }); return false; }
+    if ((got.api | 0) > EXP_API) { dlog('warn', 'exp', 'expApi', { src: src, v: got.api }); return false; }
+    var st = null;
+    try {
+      if (got.strings) for (var lg in got.strings) {
+        I18N[lg] = I18N[lg] || {};
+        for (var k in got.strings[lg]) I18N[lg][k] = got.strings[lg][k];
+      }
+      st = $('exp-style');
+      if (!st) { st = document.createElement('style'); st.id = 'exp-style'; document.head.appendChild(st); }
+      st.textContent = got.css || '';
+      lsSet(K_EXP_CSS, got.css || '');
+      got.init(expHost);
+    } catch (e) {
+      if (st && st.parentNode) st.parentNode.removeChild(st);
+      dlog('warn', 'exp', 'expRunErr', { src: src, m: errText(e) }); return false;
+    }
+    EXP.mod = got;
+    dlog('ok', 'exp', 'expOk', { src: src, v: got.version });
+    return true;
+  }
+  function expFetch(ms) {
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var to = setTimeout(function () { if (ctrl) ctrl.abort(); }, ms);
+    return fetch(EXP_URL + '?t=' + Date.now(), { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(function (x) { clearTimeout(to); return x; }, function (e) { clearTimeout(to); throw e; });
+  }
+  async function expLoadImpl(preferNet) {
+    var cached = await expStoreGet(), triedCache = false;
+    if (cached && !preferNet) {
+      triedCache = true;
+      if (expRun(cached, 'cache')) {
+        expFetch(8000).then(function (text) {
+          if (text !== cached && expLooksOk(text)) { expStoreSet(text); dlog('info', 'exp', 'expNext'); }
+        }).catch(function (e) { dlog('info', 'exp', 'expRevFail', { m: errText(e) }); });
+        return true;
+      }
+    }
+    try {
+      var text = await expFetch(preferNet ? 3500 : 8000);
+      if (!expLooksOk(text)) throw new Error('invalid');
+      if (expRun(text, 'net')) { await expStoreSet(text); return true; }
+    } catch (e) { dlog('warn', 'exp', 'expNetFail', { m: errText(e) }); }
+    if (cached && !triedCache) return expRun(cached, 'cache');
+    return false;
+  }
+  function expLoad(preferNet) {
+    if (EXP.mod) return Promise.resolve(true);
+    if (!EXP.p) EXP.p = expLoadImpl(preferNet).then(function (ok) { if (!ok) EXP.p = null; return ok; });
+    return EXP.p;
+  }
+  function expSeg(key, v) {
+    if (EXP.mod && EXP.mod.onSeg) { try { EXP.mod.onSeg(key, v, expHost); } catch (e) { dlog('warn', 'exp', 'expSegErr', { m: errText(e) }); } }
+  }
+  function expSegValue(key) {
+    try { return (EXP.mod && EXP.mod.getSeg) ? EXP.mod.getSeg(key) : null; } catch (e) { return null; }
+  }
+  async function expMount() {
+    var st = $('exp-state'), box = $('exp-mount');
+    if (EXP.mounting) return;
+    var ok = !!EXP.mod;
+    if (!ok) {
+      EXP.mounting = true;
+      st.style.display = '';
+      if (!$('exp-retry')) st.innerHTML = '<div class="exp-spin" role="status"></div>';
+      try { ok = await expLoad(true); } catch (e) {}
+      EXP.mounting = false;
+    }
+    if (!ok) {
+      st.innerHTML = '<div class="exp-fail">' + esc(t('expLoadFail')) + '</div><button class="btn outlined" id="exp-retry" type="button">' + esc(t('expRetry')) + '</button>';
+      $('exp-retry').addEventListener('click', function () {
+        var b = this; if (b.classList.contains('loading')) return;
+        b.classList.add('loading');
+        expMount();
+      });
+      twApply();
+      return;
+    }
+    st.style.display = 'none';
+    try { EXP.mod.mount(expHost, box); } catch (e) { dlog('warn', 'exp', 'expSegErr', { m: errText(e) }); }
+  }
   function setTheme(v) {
     themePref = v;
     lsSet(K_THEME, v);
@@ -2721,13 +2926,14 @@ function importAvatar(file) {
     document.title = tw ? s2t(t('docTitle')) : t('docTitle');
     translateStatic(); renderStatus(); renderResult(); renderHistory(); renderSettings(); renderProfile();
     renderLegal(); renderChangelog(); updateMoreLabels();
+    if (EXP.mod && EXP.mod.onLang) { try { EXP.mod.onLang(expHost); } catch (e) {} }
     twApply();
   }
 
   function renderSettings() {
     document.querySelectorAll('.seg').forEach(function (seg) {
-      var isLang = seg.getAttribute('data-seg') === 'lang';
-      var cur = isLang ? (lang === 'en' ? 'en' : 'zh') : themePref;
+      var sk = seg.getAttribute('data-seg'), isLang = sk === 'lang';
+      var cur = isLang ? (lang === 'en' ? 'en' : 'zh') : sk === 'theme' ? themePref : expSegValue(sk);
       if (isLang) {
         var zhSpan = seg.querySelector('button[data-v="zh"] span');
         if (zhSpan) {
@@ -2742,17 +2948,19 @@ function importAvatar(file) {
     });
   }
 
-  document.querySelectorAll('.seg').forEach(function (seg) {
+  function bindSegClick(seg) {
+    if (seg.__clickBound) return; seg.__clickBound = true;
     seg.addEventListener('click', function (e) {
       var b = e.target.closest('button[data-v]'); if (!b) return;
       var v = b.getAttribute('data-v');
       if (seg.getAttribute('data-seg') === 'lang') {
-        // 只有一个中文按钮：中文态下点击在简体/繁体之间循环；英文态下点击回到上次的中文选择
         var next = v === 'en' ? 'en' : (lang === 'en' ? (zhPref || 'zh') : (tw ? 'zh' : 'tw'));
         setLang(next, true);
-      } else setTheme(v);
+      } else if (seg.getAttribute('data-seg') === 'theme') setTheme(v);
+      else expSeg(seg.getAttribute('data-seg'), v);
     });
-  });
+  }
+  document.querySelectorAll('.seg').forEach(bindSegClick);
 
 (function setupSegEnhance(){
   function setupSeg(seg){
@@ -2814,8 +3022,6 @@ function importAvatar(file) {
         var b = el.closest('button[data-v]');
         if (b && seg.contains(b)) return b;
       }
-      var rect = seg.getBoundingClientRect();
-      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
       var best = null, min = Infinity;
       btns.forEach(function(b){
         var r = b.getBoundingClientRect();
@@ -2834,6 +3040,7 @@ function importAvatar(file) {
         var key = seg.dataset.seg;
         if (key === 'lang') setLang(v, true);
         else if (key === 'theme') setTheme(v);
+        else expSeg(key, v);
       }
     }
 
@@ -2856,7 +3063,10 @@ function importAvatar(file) {
       try { seg.releasePointerCapture(pid); } catch (_) {}
       pid = null;
       if (e.type === 'pointerup'){
-        activate(targetAt(e.clientX, e.clientY));
+        var tb = targetAt(e.clientX, e.clientY);
+        activate(tb);
+        var sk = seg.dataset.seg;
+        if (tb && sk !== 'lang' && sk !== 'theme' && tb.getAttribute('aria-checked') !== 'true') expSeg(sk, tb.dataset.v);
       }
     }
 
@@ -2866,16 +3076,20 @@ function importAvatar(file) {
   }
 
   document.querySelectorAll('.seg[data-seg]').forEach(setupSeg);
+  segEnhance = setupSeg;
 })();
 
   $('btn-settings').addEventListener('click', function () { dlog('action', 'entry', 'btnSettings'); renderSettings(); openSheet('sheet-settings'); });
   $('btn-top-avatar').addEventListener('click', function () { dlog('action', 'entry', 'btnAvatar'); renderSettings(); openAvatarSheet(); });
 
-  var VERSION_URL = 'https://skyheight.pages.dev/version.json';
+  var VERSION_URL = 'version.json';
   var K_UPDATE_IGNORE = 'sky-height-update-ignore';
   var K_LAST_CHECK = 'sky-height-last-check';
 
   var LOCAL_CHANGELOG = [
+    { version: '1.0.5', build: '6650', date: '2026-11-23',
+      zh: ['版本内部构建优化'],
+      en: ['Internal build improvements'] },
     { version: '1.0.4', build: '6597', date: '2026-11-18',
       zh: ['版本内部构建优化'],
       en: ['Internal build improvements'] },
@@ -3355,6 +3569,22 @@ function renderLegal() {
     window.open(dnUrl(which), '_blank', 'noopener');
   }
   $('more-donate').addEventListener('click', openDonate);
+  function enterExp() { openSheet('sheet-exp'); expMount(); }
+  document.addEventListener('contextmenu', function (e) { if (e.target && e.target.closest && e.target.closest('.btn,.ibtn,.top-avatar')) e.preventDefault(); });
+  if (window.__expBoot) expLoad(false);
+  $('more-exp').addEventListener('click', function () {
+    dlog('action', 'entry', 'btnExp');
+    if (lsGet(K_EXP_ACK) === '1') { enterExp(); return; }
+    openLinkConfirm({
+      title: t('expConfirmTitle'), tip: t('expConfirmTip'), ok: t('expConfirmOk'),
+      onOk: function () {
+        dlog('action', 'entry', 'btnExpOn');
+        lsSet(K_EXP_ACK, '1');
+        closeSheet('sheet-link-confirm', false);
+        enterExp();
+      }
+    });
+  });
   $('dn-f').addEventListener('click', function () { dnClick('f'); });
   $('dn-b').addEventListener('click', function () { dnClick('b'); });
   $('dn-cancel').addEventListener('click', function () { dlog('info', 'donate', 'dnCancel'); closeSheet('sheet-donate', false); });
@@ -3618,7 +3848,7 @@ function loadAvatars(cb) {
 
   avatarsState = 1;
   var t0 = Date.now();
-  var src = 'avatars.js';
+  var src = 'https://skyheight.pages.dev/avatars.js';
   dlogRaw('info', 'boot', 'avatars.js 开始加载 / loading · ' + src);
 
   var s = document.createElement('script');
